@@ -623,57 +623,6 @@ get_lock()
   fi
 }
 
-get_source_file_size()
-{
-  echo "-----------[ Source Disk Use Information ]-----------"
-
-  # FIXME: doesn't work properly with include/exclude-filelists (issue #101)
-
-  # Patches to support spaces in paths-
-  # Remove space as a field separator temporarily
-  OLDIFS=$IFS
-  IFS=$(echo -en "\t\n")
-
-  case $(uname) in
-    FreeBSD|Darwin|DragonFly)
-      DUEXCFLAG="-I -"
-      ;;
-    OpenBSD)
-      echo "WARNING: OpenBSD du does not support exclusion, sizes may be off"
-      DUEXCFLAG=""
-      ;;
-    *)
-      DUEXCFLAG="--exclude-from=-"
-    ;;
-  esac
-
-  # always exclude /proc
-  DUEXCLIST="/proc\n"
-
-  for exclude in "${EXCLIST[@]}"; do
-    DUEXCLIST="${DUEXCLIST}${exclude}\n"
-  done
-
-  # if INCLIST is not set or empty, add ROOT to it to be able to calculate disk usage
-  if [ ${#INCLIST[@]} -eq 0 ]; then
-    DUINCLIST=("${ROOT}")
-  else
-    DUINCLIST=("${INCLIST[@]}")
-  fi
-
-  for include in "${DUINCLIST[@]}"; do
-      # shellcheck disable=SC2216
-      echo -e "${DUEXCLIST}" | \
-      du -hs ${DUEXCFLAG} "${include}" | \
-      awk '{ FS="\t"; $0=$0; print $1"\t"$2 }'
-  done
-
-  echo
-
-  # Restore IFS
-  IFS=$OLDIFS
-}
-
 get_remote_file_size()
 {
   echo "---------[ Destination Disk Use Information ]--------"
@@ -878,7 +827,6 @@ setup_passphrase()
 
 get_file_sizes()
 {
-  get_source_file_size
   get_remote_file_size
 }
 

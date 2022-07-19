@@ -1,3 +1,6 @@
 .DS_Store
 .AppleDouble
 duplicity-backup.conf
+# IntelliJ stuff
+.idea
+*.iml

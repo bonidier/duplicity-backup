@@ -1,6 +1,10 @@
 vX.X.X (unreleased)
 ===================
 
+  * Export SWIFT_REGIONNAME and SWIFT_TENANTNAME (by intelligide)
+  * Remove get_source_file_size()
+    * 'du' command is too long and impact CPU utilization when summarizing huge number of files
+
 v1.6.0 (2018-05-22)
 ===================
   * Add support for Dropbox backend (by xmatthias)

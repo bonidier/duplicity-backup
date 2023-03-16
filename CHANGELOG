@@ -4,6 +4,8 @@ vX.X.X (unreleased)
   * Export SWIFT_REGIONNAME and SWIFT_TENANTNAME (by intelligide)
   * Remove get_source_file_size()
     * 'du' command is too long and impact CPU utilization when summarizing huge number of files
+  * Set Duplicity error code as script's error code + fix condition for notification/mail on failure
+  * send_notification()/email_logfile(): output message if EMAIL_TO/NOTIFICATION_SERVICE not set
 
 v1.6.0 (2018-05-22)
 ===================

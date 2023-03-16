@@ -532,6 +532,7 @@ mailcmd_else() {
 
 email_logfile()
 {
+  echo "sending email..."
   if [ -n "${EMAIL_TO}" ]; then
 
       MAILCMD=$(command -v "${MAIL}")
@@ -569,11 +570,14 @@ email_logfile()
 
           echo -e "Email notification sent to ${EMAIL_TO} using ${MAIL}"
       fi
+  else
+    echo "skipped: EMAIL_TO not set"
   fi
 }
 
 send_notification()
 {
+  echo "sending notification..."
   if [ -n "${NOTIFICATION_SERVICE}" ]; then
     echo "-----------[ Notification Request ]-----------"
     NOTIFICATION_CONTENT="duplicity-backup ${BACKUP_STATUS:-"ERROR"} [${HOSTNAME}] - \`${LOGFILE}\`"
@@ -603,6 +607,8 @@ send_notification()
     elif [ "${NOTIFICATION_SERVICE}" = "telegram" ]; then
       echo -e "Telegram notification sent"
     fi
+  else
+    echo "skipped: NOTIFICATION_SERVICE not set"
   fi
 }
 
@@ -930,6 +936,7 @@ get_lock
 INCLUDE=
 EXCLUDE=
 EXCLUDEROOT=
+BACKUP_ERROR=0
 
 case "${COMMAND}" in
   "backup-script")
@@ -1094,17 +1101,17 @@ if [ "${USAGE}" ]; then
   exit 0
 fi
 
-if [ "${BACKUP_ERROR}" ]; then
+if [ ${BACKUP_ERROR} -eq 1 ]; then
   BACKUP_STATUS="ERROR"
+  # send email or notification on error
+  [[ "${EMAIL_FAILURE_ONLY}" == "yes" ]] && email_logfile
+  [[ "${NOTIFICATION_FAILURE_ONLY}" == "yes" ]] && send_notification
 else
   BACKUP_STATUS="OK"
 fi
 
-# send email
-[[ ${BACKUP_ERROR} || ! "$EMAIL_FAILURE_ONLY" = "yes" ]] && email_logfile
-
-# send notification
-[[ ${BACKUP_ERROR} || ! "$NOTIFICATION_FAILURE_ONLY" = "yes" ]] && send_notification
+echo -e "\\nReport:"
+echo "BACKUP_STATUS: ${BACKUP_STATUS} (BACKUP_ERROR: ${BACKUP_ERROR})"
 
 # remove old logfiles
 # stops them from piling up infinitely
@@ -1130,5 +1137,8 @@ unset FTP_PASSWORD
 # restore stdout and stderr to their original values
 # and close the other fd
 exec 1>&6 2>&7 3>&- 4>&- 5>&- 6>&- 7>&-
+
+# set Duplicity error code as script's error code
+exit ${BACKUP_ERROR}
 
 # vim: set tabstop=2 shiftwidth=2 sts=2 autoindent smartindent:

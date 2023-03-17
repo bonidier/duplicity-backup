@@ -1,4 +1,4 @@
-vX.X.X (unreleased)
+v1.6.1 (2023-XX-XX) [unreleased]
 ===================
 
   * Export SWIFT_REGIONNAME and SWIFT_TENANTNAME (by intelligide)
@@ -6,6 +6,12 @@ vX.X.X (unreleased)
     * 'du' command is too long and impact CPU utilization when summarizing huge number of files
   * Set Duplicity error code as script's error code + fix condition for notification/mail on failure
   * send_notification()/email_logfile(): output message if EMAIL_TO/NOTIFICATION_SERVICE not set
+  * Remove eval() to run Duplicity commands. _duplicity_cmd() now handle options and always print command
+  * Remove ECHO variable
+  * duplicity_backup(): verify valid commands
+  * [cleanup] enhance output about running step
+  * [cleanup] verify valid CLEAN_UP_TYPE values, warn if CLEAN_UP_VARIABLE is unset
+  * [cleanup] if REMOVE_INCREMENTALS_OLDER_THAN is set, ensure value is above zero. notice if unset
 
 v1.6.0 (2018-05-22)
 ===================

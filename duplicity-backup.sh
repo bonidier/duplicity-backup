@@ -45,7 +45,7 @@ CONFIG="duplicity-backup.conf"
 # Script Happens Below This Line - Shouldn't Require Editing #
 ##############################################################
 
-DBSH_VERSION="v1.6.0"
+DBSH_VERSION="v1.6.1-dev"
 
 # make a backup of stdout and stderr for later
 exec 6>&1
@@ -571,7 +571,7 @@ email_logfile()
           echo -e "Email notification sent to ${EMAIL_TO} using ${MAIL}"
       fi
   else
-    echo "skipped: EMAIL_TO not set"
+    echo "[skipped]: EMAIL_TO not set"
   fi
 }
 
@@ -769,55 +769,80 @@ include_exclude()
   IFS=$OLDIFS
 }
 
+_duplicity_cmd()
+{
+  local duplicity_cmd=
+  duplicity_cmd=("${DUPLICITY}" "$*")
+  # avoid to set this common variables anywhere
+  duplicity_cmd+=("${STATIC_OPTIONS}" "${ENCRYPT}" "${DEST}")
+
+  echo "executing: ${duplicity_cmd[*]}"
+  if ! bash -c "${duplicity_cmd[*]}"; then
+    DUPLICITY_ERRCODE=1
+  fi
+}
+
 duplicity_cleanup()
 {
   echo "----------------[ Duplicity Cleanup ]----------------"
-  if [[ "${CLEAN_UP_TYPE}" != "none" && -n ${CLEAN_UP_TYPE} && -n ${CLEAN_UP_VARIABLE} ]]; then
-    {
-      eval "${ECHO}" "${DUPLICITY}" "${CLEAN_UP_TYPE}" "${CLEAN_UP_VARIABLE}" "${STATIC_OPTIONS}" --force \
-        "${ENCRYPT}" \
-        "${DEST}"
-    } || {
-      BACKUP_ERROR=1
-    }
+  echo -e ":: Step 1 - Clean-up command: ${CLEAN_UP_TYPE}\\n"
+  case "${CLEAN_UP_TYPE}" in
+    "remove-older-than"|"remove-all-but-n-full")
+      if [[ -n "${CLEAN_UP_VARIABLE}" ]]; then
+        if ! _duplicity_cmd "${CLEAN_UP_TYPE}" "${CLEAN_UP_VARIABLE}" --force; then
+          DUPLICITY_ERRCODE=1
+        fi
+        echo
+      else
+        echo "[skipped]: CLEAN_UP_VARIABLE not set"
+      fi
+      ;;
+    "none"|*)
+      echo "disabled"
+      ;;
+  esac
+
+  echo -e ":: Step 2 - Delete incremental sets of all backups sets older than the ${REMOVE_INCREMENTALS_OLDER_THAN}:th last full backup\\n"
+  if [[ -n "${REMOVE_INCREMENTALS_OLDER_THAN}" ]]; then
+    if [[ ${REMOVE_INCREMENTALS_OLDER_THAN} =~ ^[0-9]+$ && ${REMOVE_INCREMENTALS_OLDER_THAN} -gt 0 ]]; then
+      if ! _duplicity_cmd "remove-all-inc-of-but-n-full" "${REMOVE_INCREMENTALS_OLDER_THAN}"  --force; then
+        DUPLICITY_ERRCODE=1
+      fi
+    else
+      echo "WARN: REMOVE_INCREMENTALS_OLDER_THAN must be a number above 0"
+    fi
     echo
-  fi
-  if [ -n "${REMOVE_INCREMENTALS_OLDER_THAN}" ] && [[ ${REMOVE_INCREMENTALS_OLDER_THAN} =~ ^[0-9]+$ ]]; then
-    {
-      eval "${ECHO}" "${DUPLICITY}" remove-all-inc-of-but-n-full "${REMOVE_INCREMENTALS_OLDER_THAN}" \
-        "${STATIC_OPTIONS}" --force \
-        "${ENCRYPT}" \
-        "${DEST}"
-    } || {
-      BACKUP_ERROR=1
-    }
-    echo
+  else
+    echo "[skipped]: REMOVE_INCREMENTALS_OLDER_THAN not set"
   fi
 }
 
 duplicity_backup()
 {
-  {
-    eval "${ECHO}" "${DUPLICITY}" "${OPTION}" "${VERBOSITY}" "${STATIC_OPTIONS}" \
-    "${ENCRYPT}" \
-    "${EXCLUDE}" \
-    "${INCLUDE}" \
-    "${EXCLUDEROOT}" \
-    "${ROOT}" "${DEST}"
-  } || {
-    BACKUP_ERROR=1
-  }
+  local command=$1
+  case "${command}" in
+    "full"|"incremental"|"incr"|"verify"|"restore")
+      ;;
+    *)
+      echo "ERROR: invalid option: $1" >&2
+      exit 1
+      ;;
+  esac
+
+  if ! _duplicity_cmd "${command}" "${VERBOSITY}" \
+                      "${EXCLUDE}" \
+                      "${INCLUDE}" \
+                      "${EXCLUDEROOT}" \
+                      "${ROOT}"; then
+    DUPLICITY_ERRCODE=1
+  fi
 }
 
 duplicity_cleanup_failed()
 {
-  {
-    eval "${ECHO}" "${DUPLICITY}" "${OPTION}" "${VERBOSITY}" "${STATIC_OPTIONS}" \
-    "${ENCRYPT}" \
-    "${DEST}"
-  } || {
-    BACKUP_ERROR=1
-  }
+  if ! _duplicity_cmd "cleanup" "${VERBOSITY}"; then
+    DUPLICITY_ERRCODE=1
+  fi
 }
 
 setup_passphrase()
@@ -936,7 +961,7 @@ get_lock
 INCLUDE=
 EXCLUDE=
 EXCLUDEROOT=
-BACKUP_ERROR=0
+DUPLICITY_ERRCODE=0
 
 case "${COMMAND}" in
   "backup-script")
@@ -945,9 +970,8 @@ case "${COMMAND}" in
   ;;
 
   "full")
-    OPTION="full"
     include_exclude
-    duplicity_backup
+    duplicity_backup "full"
     duplicity_cleanup
     get_file_sizes
   ;;
@@ -956,13 +980,12 @@ case "${COMMAND}" in
     OLDROOT=${ROOT}
     ROOT=${DEST}
     DEST=${OLDROOT}
-    OPTION="verify"
 
     echo -e "-------[ Verifying Source & Destination ]-------\n"
     include_exclude
     setup_passphrase
     echo -e "Attempting to verify now ...\n" >&3
-    duplicity_backup
+    duplicity_backup "verify"
     echo
 
     OLDROOT=${ROOT}
@@ -975,8 +998,6 @@ case "${COMMAND}" in
   ;;
 
   "cleanup")
-    OPTION="cleanup"
-
     if [ -z "${DRY_RUN}" ]; then
       STATIC_OPTIONS="${STATIC_OPTIONS} --force"
     fi
@@ -990,7 +1011,6 @@ case "${COMMAND}" in
 
   "restore")
     ROOT=${DEST}
-    OPTION="restore"
     if [ -n "${TIME}" ]; then
       STATIC_OPTIONS="${STATIC_OPTIONS} --time ${TIME}"
     fi
@@ -1014,12 +1034,11 @@ case "${COMMAND}" in
 
     setup_passphrase
     echo "Attempting to restore now ..." >&3
-    duplicity_backup
+    duplicity_backup "restore"
   ;;
 
   "restore-file"|"restore-dir")
     ROOT=${DEST}
-    OPTION="restore"
 
     if [ -n "${TIME}" ]; then
       STATIC_OPTIONS="${STATIC_OPTIONS} --time ${TIME}"
@@ -1057,34 +1076,23 @@ case "${COMMAND}" in
     echo "Restoring now ..." >&3
     #use INCLUDE variable without creating another one
     INCLUDE="--file-to-restore ${FILE_TO_RESTORE}"
-    duplicity_backup
+    duplicity_backup "restore"
   ;;
 
   "list-current-files")
-    OPTION="list-current-files"
-
     if [ -n "${TIME}" ]; then
       STATIC_OPTIONS="${STATIC_OPTIONS} --time ${TIME}"
     fi
-
-    eval \
-    "${DUPLICITY}" "${OPTION}" "${VERBOSITY}" "${STATIC_OPTIONS}" \
-    ${ENCRYPT} \
-    "${DEST}"
+    _duplicity_cmd "list-current-files" "${VERBOSITY}"
   ;;
 
   "collection-status")
-    OPTION="collection-status"
-
-    eval \
-    "${DUPLICITY}" "${OPTION}" "${VERBOSITY}" "${STATIC_OPTIONS}" \
-    ${ENCRYPT} \
-    "${DEST}"
+    _duplicity_cmd "collection-status" "${VERBOSITY}"
   ;;
 
   "backup")
     include_exclude
-    duplicity_backup
+    duplicity_backup "incremental"
     duplicity_cleanup
     get_file_sizes
   ;;
@@ -1101,7 +1109,7 @@ if [ "${USAGE}" ]; then
   exit 0
 fi
 
-if [ ${BACKUP_ERROR} -eq 1 ]; then
+if [ ${DUPLICITY_ERRCODE} -eq 1 ]; then
   BACKUP_STATUS="ERROR"
   # send email or notification on error
   [[ "${EMAIL_FAILURE_ONLY}" == "yes" ]] && email_logfile
@@ -1111,15 +1119,11 @@ else
 fi
 
 echo -e "\\nReport:"
-echo "BACKUP_STATUS: ${BACKUP_STATUS} (BACKUP_ERROR: ${BACKUP_ERROR})"
+echo "STATUS: ${BACKUP_STATUS} (DUPLICITY_ERRCODE: ${DUPLICITY_ERRCODE})"
 
 # remove old logfiles
 # stops them from piling up infinitely
 [[ -n "${REMOVE_LOGS_OLDER_THAN}" ]] && find "${LOGDIR}" -type f -mtime +"${REMOVE_LOGS_OLDER_THAN}" -delete
-
-if [ "${ECHO}" ]; then
-  echo "TEST RUN ONLY: Check the logfile for command output."
-fi
 
 unset AWS_ACCESS_KEY_ID
 unset AWS_SECRET_ACCESS_KEY
@@ -1139,6 +1143,6 @@ unset FTP_PASSWORD
 exec 1>&6 2>&7 3>&- 4>&- 5>&- 6>&- 7>&-
 
 # set Duplicity error code as script's error code
-exit ${BACKUP_ERROR}
+exit ${DUPLICITY_ERRCODE}
 
 # vim: set tabstop=2 shiftwidth=2 sts=2 autoindent smartindent:

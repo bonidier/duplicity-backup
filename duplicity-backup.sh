@@ -87,7 +87,6 @@ echo "USAGE:
                                is still logged in the logfile.
 
     -n, --dry-run              perform a trial run with no changes made
-    -d, --debug                echo duplicity commands to logfile
     -V, --version              print version information about this script and duplicity
     -h, --help                 print this help and exit
 
@@ -142,7 +141,7 @@ version(){
 # Some expensive argument parsing that allows the script to
 # be insensitive to the order of appearance of the options
 # and to handle correctly option parameters that are optional
-while getopts ":c:t:bfvelsqndhV-:" opt; do
+while getopts ":c:t:bfvelsqnhV-:" opt; do
   case $opt in
     # parse long options (a bit tricky because builtin getopts does not
     # manage long options and I don't want to impose GNU getopt dependancy)
@@ -194,9 +193,6 @@ while getopts ":c:t:bfvelsqndhV-:" opt; do
         dry-run)
           DRY_RUN="--dry-run"
         ;;
-        debug)
-          ECHO=$(command -v echo)
-        ;;
         help)
           usage
           exit 0
@@ -220,7 +216,6 @@ while getopts ":c:t:bfvelsqndhV-:" opt; do
     s) COMMAND="collection-status";;
     q) QUIET=1;;
     n) DRY_RUN="--dry-run";; # dry run
-    d) ECHO=$(command -v echo);; # debug
     h)
       usage
       exit 0

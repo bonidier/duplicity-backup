@@ -1,5 +1,10 @@
 vX.X.X (unreleased)
 ===================
+  * Ensure some required binaries exists (tar, pinentry)
+  * rework backup_this_script():
+    * ensure destination temp directory can be created
+    * set GPG_TTY even if no encryption into configuration: used for archive's symmetric encryption
+    * now raise error on tar/gpg failure
 
 v1.6.1 (2023-03-20)
 ===================

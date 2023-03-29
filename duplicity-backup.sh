@@ -45,7 +45,7 @@ CONFIG="duplicity-backup.conf"
 # Script Happens Below This Line - Shouldn't Require Editing #
 ##############################################################
 
-DBSH_VERSION="v1.6.1"
+DBSH_VERSION="v1.6.1-dev"
 
 # make a backup of stdout and stderr for later
 exec 6>&1
@@ -366,8 +366,8 @@ if [[ -n "${FTP_PASSWORD}" ]]; then
   export FTP_PASSWORD
 fi
 
-if [[ -n "${TMPDIR}" ]]; then
-  export TMPDIR
+if [[ -n "${tmpdir}" ]]; then
+  export tmpdir
 fi
 
 # File to use as a lock. The lock is used to insure that only one instance of
@@ -411,7 +411,6 @@ size information unavailable."
 NO_B2CMD="WARNING: b2 not found in PATH, remote file size information \
 unavailable. Is the python-b2 package installed?"
 
-README_TXT="In case you've long forgotten, this is a backup script that you used to backup some files (most likely remotely at Amazon S3). In order to restore these files, you first need to import your GPG private(s) key(s) (if you haven't already). The key(s) is/are in this directory and the following command(s) should do the trick:\n\nIf you were using the same key for encryption and signature:\n  gpg --allow-secret-key-import --import duplicity-backup-encryption-and-sign-secret.key.txt\nOr if you were using two separate keys for encryption and signature:\n  gpg --allow-secret-key-import --import duplicity-backup-encryption-secret.key.txt\n  gpg --allow-secret-key-import --import duplicity-backup-sign-secret.key.txt\n\nAfter your key(s) has/have been succesfully imported, you should be able to restore your files.\n\nGood luck!"
 
 if  [ "$(echo "${DEST}" | cut -c 1,2)" = "gs" ]; then
   DEST_IS_GS=true
@@ -858,21 +857,23 @@ get_file_sizes()
 
 backup_this_script()
 {
-  if [ "$(echo "${0}" | cut -c 1)" = "." ]; then
-    SCRIPTFILE=$(echo "${0}" | cut -c 2-)
-    SCRIPTPATH=$(pwd)${SCRIPTFILE}
+  local script_file script_path tmpdir tmp_filename readme
+  if [[ "${0:0:1}" == "." ]]; then
+    script_file="${0:2}"
+    script_path="$(pwd)/${script_file}"
   else
-    SCRIPTPATH=$(command -v "${0}")
+    script_path=$(command -v "${0}")
   fi
-  TMPDIR=duplicity-backup-$(date +%Y-%m-%d)
-  TMPFILENAME=${TMPDIR}.tar.gpg
-  README=${TMPDIR}/README
+
+  tmpdir="duplicity-backup-$(date +'%Y-%m-%d')"
+  tmp_filename="${tmpdir}.tar.gpg"
+  readme="${tmpdir}/README"
 
   echo "You are backing up: " >&3
-  echo "      1. ${SCRIPTPATH}" >&3
+  echo "      1. ${script_path}" >&3
 
-  if [ -n "${GPG_ENC_KEY}" ] && [ -n "${GPG_SIGN_KEY}" ]; then
-    if [ "${GPG_ENC_KEY}" = "${GPG_SIGN_KEY}" ]; then
+  if [[ -n "${GPG_ENC_KEY}" && -n "${GPG_SIGN_KEY}" ]]; then
+    if [[ "${GPG_ENC_KEY}" == "${GPG_SIGN_KEY}" ]]; then
       echo "      2. GPG Secret encryption and sign key: ${GPG_ENC_KEY}" >&3
     else
       echo "      2. GPG Secret encryption key: ${GPG_ENC_KEY} and GPG secret sign key: ${GPG_SIGN_KEY}" >&3
@@ -881,68 +882,102 @@ backup_this_script()
     echo "      2. GPG Secret encryption and sign key: none (symmetric encryption)" >&3
   fi
 
-  if [ -n "${CONFIG}" ] && [ -f "${CONFIG}" ];
-  then
+  if [[ -n "${CONFIG}" && -f "${CONFIG}" ]]; then
     echo "      3. Config file: ${CONFIG}" >&3
   fi
 
-  if [ -n "${INCEXCFILE}" ] && [ -f "${INCEXCFILE}" ];
-  then
+  if [[ -n "${INCEXCFILE}" &&  -f "${INCEXCFILE}" ]]; then
     echo "      4. Include/Exclude globbing file: ${INCEXCFILE}" >&3
   fi
 
-  echo "Backup tarball will be encrypted and saved to: $(pwd)/${TMPFILENAME}" >&3
+  echo "Backup tarball will be encrypted and saved to: $(pwd)/${tmp_filename}" >&3
   echo >&3
   echo ">> Are you sure you want to do that ('yes' to continue)?" >&3
   read -r ANSWER
-  if [ "${ANSWER}" != "yes" ]; then
+  if [[ "${ANSWER}" != "yes" ]]; then
     echo "You said << ${ANSWER} >> so I am exiting now." >&3
     echo -e "---------------------    END    ---------------------\n" >&5
     exit 1
   fi
 
-  mkdir -p "${TMPDIR}"
-  cp "${SCRIPTPATH}" "${TMPDIR}"/
+  mkdir "${tmpdir}" || return 1
 
-  if [ -n "${CONFIG}" ] && [ -f "${CONFIG}" ];
-  then
-    cp "${CONFIG}" "${TMPDIR}"/
-  fi
+  cp "${script_path}" "${tmpdir}"
+  [[ -n "${CONFIG}" && -f "${CONFIG}" ]] && cp "${CONFIG}" "${tmpdir}"
+  [[ -n "${INCEXCFILE}" && -f "${INCEXCFILE}" ]] && cp "${INCEXCFILE}" "${tmpdir}"
 
-  if [ -n "${INCEXCFILE}" ] && [ -f "${INCEXCFILE}" ];
-  then
-    cp "${INCEXCFILE}" "${TMPDIR}"/
-  fi
+  # must be set even if no encryption into configuration: used for archive's symmetric encryption
+  GPG_TTY=$(tty)
+  export GPG_TTY
 
-  if [ -n "${GPG_ENC_KEY}" ] && [ -n "${GPG_SIGN_KEY}" ]; then
-    GPG_TTY=$(tty)
-    export GPG_TTY
-    if [ "${GPG_ENC_KEY}" = "${GPG_SIGN_KEY}" ]; then
-      # shellcheck disable=SC2086
-      gpg -a --export-secret-keys ${KEYRING} ${GPG_ENC_KEY} > "${TMPDIR}"/duplicity-backup-encryption-and-sign-secret.key.txt
+  if [[ -n "${GPG_ENC_KEY}" && -n "${GPG_SIGN_KEY}" ]]; then
+    if [[ "${GPG_ENC_KEY}" == "${GPG_SIGN_KEY}" ]]; then
+      gpg -a --export-secret-keys "${KEYRING}" "${GPG_ENC_KEY}" > "${tmpdir}/duplicity-backup-encryption-and-sign-secret.key.txt"
     else
-      # shellcheck disable=SC2086
-      gpg -a --export-secret-keys ${KEYRING} ${GPG_ENC_KEY} > "${TMPDIR}"/duplicity-backup-encryption-secret.key.txt
-      # shellcheck disable=SC2086
-      gpg -a --export-secret-keys ${KEYRING} ${GPG_SIGN_KEY} > "${TMPDIR}"/duplicity-backup-sign-secret.key.txt
+      gpg -a --export-secret-keys "${KEYRING}" "${GPG_ENC_KEY}" > "${tmpdir}/duplicity-backup-encryption-secret.key.txt"
+      gpg -a --export-secret-keys "${KEYRING}" "${GPG_SIGN_KEY}" > "${tmpdir}/duplicity-backup-sign-secret.key.txt"
     fi
   fi
 
-  echo -e "${README_TXT}" > "${README}"
+  cat > "${readme}" <<EOF
+
+In case you've long forgotten, this is a backup script that you used to backup some files
+(most likely remotely at Amazon S3). In order to restore these files,
+you first need to import your GPG private(s) key(s) (if you haven't already).
+The key(s) is/are in this directory and the following command(s) should do the trick:
+
+If you were using the same key for encryption and signature:
+  gpg --allow-secret-key-import --import duplicity-backup-encryption-and-sign-secret.key.txt
+Or if you were using two separate keys for encryption and signature:
+  gpg --allow-secret-key-import --import duplicity-backup-encryption-secret.key.txt
+  gpg --allow-secret-key-import --import duplicity-backup-sign-secret.key.txt
+
+After your key(s) has/have been successfully imported, you should be able to restore your files.
+
+Good luck!
+EOF
+
+  local ret_code
   echo "Encrypting tarball, choose a password you'll remember..." >&3
-  tar -cf - "${TMPDIR}" | gpg -aco "${TMPFILENAME}"
-  rm -Rf "${TMPDIR}"
-  echo -e "\nIMPORTANT!!" >&3
-  echo ">> To restore these files, run the following (remember your password):" >&3
-  echo "gpg -d ${TMPFILENAME} | tar -xf -" >&3
-  echo -e "\nYou may want to write the above down and save it with the file." >&3
+  tar -cf - "${tmpdir}" | gpg -aco "${tmp_filename}"
+  # ensure the previous commands succeeds
+  if [[ $((PIPESTATUS[0] + PIPESTATUS[1])) -eq 0 ]]; then
+    echo -e "\nIMPORTANT!!" >&3
+    echo ">> To restore these files, run the following (remember your password):" >&3
+    echo "gpg -d ${tmp_filename} | tar -xf -" >&3
+    echo -e "\nYou may want to write the above down and save it with the file." >&3
+    ret_code=0
+  else
+    ret_code=1
+  fi
+  rm -Rfv "${tmpdir:?}"
+  return ${ret_code}
+}
+
+# usage: check_required_binaries <binary1> <binary2> ...
+check_required_binaries()
+{
+  local req_bin missing_bin=()
+  # check required bins
+  for req_bin in "$@"
+  do
+    type -p "${req_bin}" >/dev/null || missing_bin+=("${req_bin}")
+  done
+
+  if [[ ${#missing_bin[@]} -gt 0 ]]; then
+    echo "missing binaries: ${missing_bin[*]}"
+    return 1
+  fi
 }
 
 # ##################################################
 # ####        end of functions definition       ####
 # ##################################################
 
+check_required_binaries tar pinentry || exit 1
+
 check_variables
+
 
 echo -e "--------    START DUPLICITY-BACKUP SCRIPT for ${HOSTNAME}   --------\n" >&5
 
@@ -960,7 +995,10 @@ DUPLICITY_ERRCODE=0
 
 case "${COMMAND}" in
   "backup-script")
-    backup_this_script
+    if ! backup_this_script; then
+      echo -e "\\nconfig+secrets backup has failed" >&2
+      exit 1
+    fi
     exit 0
   ;;
 

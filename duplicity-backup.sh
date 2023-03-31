@@ -770,6 +770,7 @@ _duplicity_cmd()
   # avoid to set this common variables anywhere
   duplicity_cmd+=("${STATIC_OPTIONS}" "${ENCRYPT}" "${DEST}")
 
+  DUPLICITY_ERRCODE=${DUPLICITY_ERRCODE:-0}
   echo "executing: ${duplicity_cmd[*]}"
   if ! bash -c "${duplicity_cmd[*]}"; then
     DUPLICITY_ERRCODE=1
@@ -783,9 +784,7 @@ duplicity_cleanup()
   case "${CLEAN_UP_TYPE}" in
     "remove-older-than"|"remove-all-but-n-full")
       if [[ -n "${CLEAN_UP_VARIABLE}" ]]; then
-        if ! _duplicity_cmd "${CLEAN_UP_TYPE}" "${CLEAN_UP_VARIABLE}" --force; then
-          DUPLICITY_ERRCODE=1
-        fi
+        _duplicity_cmd "${CLEAN_UP_TYPE}" "${CLEAN_UP_VARIABLE}" --force
         echo
       else
         echo "[skipped]: CLEAN_UP_VARIABLE not set"
@@ -796,12 +795,11 @@ duplicity_cleanup()
       ;;
   esac
 
-  echo -e ":: Step 2 - Delete incremental sets of all backups sets older than the ${REMOVE_INCREMENTALS_OLDER_THAN}:th last full backup\\n"
+  echo -e ":: Step 2 - Delete incremental sets of all backups sets older than the N:th last full backup\\n"
   if [[ -n "${REMOVE_INCREMENTALS_OLDER_THAN}" ]]; then
+    echo "N=${REMOVE_INCREMENTALS_OLDER_THAN}"
     if [[ ${REMOVE_INCREMENTALS_OLDER_THAN} =~ ^[0-9]+$ && ${REMOVE_INCREMENTALS_OLDER_THAN} -gt 0 ]]; then
-      if ! _duplicity_cmd "remove-all-inc-of-but-n-full" "${REMOVE_INCREMENTALS_OLDER_THAN}"  --force; then
-        DUPLICITY_ERRCODE=1
-      fi
+      _duplicity_cmd "remove-all-inc-of-but-n-full" "${REMOVE_INCREMENTALS_OLDER_THAN}"  --force
     else
       echo "WARN: REMOVE_INCREMENTALS_OLDER_THAN must be a number above 0"
     fi
@@ -823,20 +821,11 @@ duplicity_backup()
       ;;
   esac
 
-  if ! _duplicity_cmd "${command}" "${VERBOSITY}" \
-                      "${EXCLUDE}" \
-                      "${INCLUDE}" \
-                      "${EXCLUDEROOT}" \
-                      "${ROOT}"; then
-    DUPLICITY_ERRCODE=1
-  fi
-}
-
-duplicity_cleanup_failed()
-{
-  if ! _duplicity_cmd "cleanup" "${VERBOSITY}"; then
-    DUPLICITY_ERRCODE=1
-  fi
+  _duplicity_cmd "${command}" "${VERBOSITY}" \
+                 "${EXCLUDE}" \
+                 "${INCLUDE}" \
+                 "${EXCLUDEROOT}" \
+                 "${ROOT}"
 }
 
 setup_passphrase()
@@ -991,7 +980,6 @@ get_lock
 INCLUDE=
 EXCLUDE=
 EXCLUDEROOT=
-DUPLICITY_ERRCODE=0
 
 case "${COMMAND}" in
   "backup-script")
@@ -1037,8 +1025,7 @@ case "${COMMAND}" in
 
     echo -e "-------[ Cleaning up Destination ]-------\n"
     setup_passphrase
-    duplicity_cleanup_failed
-
+    _duplicity_cmd "cleanup" "${VERBOSITY}"
     echo -e "Cleanup complete."
   ;;
 

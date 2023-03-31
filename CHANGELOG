@@ -1,5 +1,6 @@
 vX.X.X (unreleased)
 ===================
+  * rework duplicity_cmd() error code management
   * Ensure some required binaries exists (tar, pinentry)
   * rework backup_this_script():
     * ensure destination temp directory can be created

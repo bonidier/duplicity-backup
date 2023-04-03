@@ -6,6 +6,9 @@ vX.X.X (unreleased)
     * ensure destination temp directory can be created
     * set GPG_TTY even if no encryption into configuration: used for archive's symmetric encryption
     * now raise error on tar/gpg failure
+  * extract full destination's schema, used into conditions blocks
+  * rework check_variables()
+  * shellcheck pass
 
 v1.6.1 (2023-03-20)
 ===================

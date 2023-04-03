@@ -112,9 +112,10 @@ DUPLICITY_VERSION=$(${DUPLICITY} --version)
 DUPLICITY_VERSION=${DUPLICITY_VERSION//[^0-9\.]/}
 
 version_compare() {
+    local l r s
     if [[ $1 =~ ^([0-9]+\.?)+$ && $2 =~ ^([0-9]+\.?)+$ ]]; then
         # shellcheck disable=SC2206
-        local l=(${1//./ }) r=(${2//./ }) s=${#l[@]}; [[ ${#r[@]} -gt ${#l[@]} ]] && s=${#r[@]}
+        l=(${1//./ }) r=(${2//./ }) s=${#l[@]}; [[ ${#r[@]} -gt ${#l[@]} ]] && s=${#r[@]}
 
         for i in $(seq 0 $((s - 1))); do
             [[ ${l[$i]} -gt ${r[$i]} ]] && return 1
@@ -411,89 +412,91 @@ size information unavailable."
 NO_B2CMD="WARNING: b2 not found in PATH, remote file size information \
 unavailable. Is the python-b2 package installed?"
 
+readonly DEST_PROTO=${DEST%"://"*}
 
-if  [ "$(echo "${DEST}" | cut -c 1,2)" = "gs" ]; then
-  DEST_IS_GS=true
-  GSCMD="$(command -v gsutil)"
-  if [ ! -x "${GSCMD}" ]; then
-    echo "${NO_GSCMD}"; GSCMD_AVAIL=false
-  elif [ ! -f "${HOME}/.boto" ]; then
-    echo "${NO_GSCMD_CFG}"; GSCMD_AVAIL=false
-  else
-    GSCMD_AVAIL=true
-    GSCMD="${GSCMD}"
-  fi
-else
-  DEST_IS_GS=false
-fi
-
-if  [ "$(echo "${DEST}" | cut -c 1,2)" = "s3" ]; then
-  DEST_IS_S3=true
-  S3CMD="$(command -v s3cmd)"
-  if [ ! -x "${S3CMD}" ]; then
-    echo "${NO_S3CMD}"; S3CMD_AVAIL=false
-  elif [ -z "${S3CMD_CONF_FILE}" ] && [ ! -f "${HOME}/.s3cfg" ]; then
-    S3CMD_CONF_FOUND=false
-    echo "${NO_S3CMD_CFG}"; S3CMD_AVAIL=false
-  elif [ -n "${S3CMD_CONF_FILE}" ] && [ ! -f "${S3CMD_CONF_FILE}" ]; then
-    S3CMD_CONF_FOUND=false
-    echo "${S3CMD_CONF_FILE} not found, check S3CMD_CONF_FILE variable in duplicity-backup's configuration!";
-    echo "${NO_S3CMD_CFG}";
-    S3CMD_AVAIL=false
-  else
-    S3CMD_AVAIL=true
-    S3CMD_CONF_FOUND=true
-    if [ -n "${S3CMD_CONF_FILE}" ] && [ -f "${S3CMD_CONF_FILE}" ]; then
-      # if conf file specified and it exists then add it to the command line for s3cmd
-      S3CMD="${S3CMD} -c ${S3CMD_CONF_FILE}"
+case "${DEST_PROTO}" in
+  "gs")
+      GSCMD="$(command -v gsutil)"
+      if [ ! -x "${GSCMD}" ]; then
+        echo "${NO_GSCMD}"; GSCMD_AVAIL=false
+      elif [ ! -f "${HOME}/.boto" ]; then
+        echo "${NO_GSCMD_CFG}"; GSCMD_AVAIL=false
+      else
+        GSCMD_AVAIL=true
+      fi
+    ;;
+   "s3"|"s3+http")
+      S3CMD="$(command -v s3cmd)"
+      if [ ! -x "${S3CMD}" ]; then
+        echo "${NO_S3CMD}"; S3CMD_AVAIL=false
+      elif [ -z "${S3CMD_CONF_FILE}" ] && [ ! -f "${HOME}/.s3cfg" ]; then
+        S3CMD_CONF_FOUND=false
+        echo "${NO_S3CMD_CFG}"; S3CMD_AVAIL=false
+      elif [ -n "${S3CMD_CONF_FILE}" ] && [ ! -f "${S3CMD_CONF_FILE}" ]; then
+        S3CMD_CONF_FOUND=false
+        echo "${S3CMD_CONF_FILE} not found, check S3CMD_CONF_FILE variable in duplicity-backup's configuration!";
+        echo "${NO_S3CMD_CFG}";
+        S3CMD_AVAIL=false
+      else
+        S3CMD_AVAIL=true
+        S3CMD_CONF_FOUND=true
+        if [ -n "${S3CMD_CONF_FILE}" ] && [ -f "${S3CMD_CONF_FILE}" ]; then
+          # if conf file specified and it exists then add it to the command line for s3cmd
+          S3CMD="${S3CMD} -c ${S3CMD_CONF_FILE}"
+        fi
+      fi
+    ;;
+  "dpbx");;
+  "b2")
+    B2CMD_AVAIL=true
+    B2CMD="$(command -v b2)"
+    if [ ! -x "${B2CMD}" ]; then
+      echo "${NO_B2CMD}"; B2CMD_AVAIL=false
     fi
-  fi
-else
-  DEST_IS_S3=false
-fi
-
-if  [ "$(echo "${DEST}" | cut -c 1,4)" = "dpbx" ]; then
-  DEST_IS_DPBX=true
-else
-  DEST_IS_DPBX=false
-fi
-
-if  [ "$(echo "${DEST}" | cut -c 1,2)" = "b2" ]; then
-  DEST_IS_B2=true
-  B2CMD="$(command -v b2)"
-  if [ ! -x "${B2CMD}" ]; then
-    echo "${NO_B2CMD}"; B2CMD_AVAIL=false
-  fi
-else
-  DEST_IS_B2=false
-fi
+    ;;
+esac
 
 config_sanity_fail()
 {
-  EXPLANATION=$1
-  CONFIG_VAR_MSG="Oops!! ${0} was unable to run!\nWe are missing one or more important variables in the configuration file.\nCheck your configuration because it appears that something has not been set yet."
-  echo -e "${CONFIG_VAR_MSG}\n  ${EXPLANATION}." >&2
+  local explanation=$1
+  local config_var_msg="Oops!! ${0} was unable to run!\nWe are missing one or more important variables in the configuration file.\nCheck your configuration because it appears that something has not been set yet."
+  echo -e "${config_var_msg}\n  ${explanation}." >&2
   echo -e "---------------------    END    ---------------------\n" >&5
   exit 1
 }
 
-check_variables ()
+check_variables()
 {
-  [[ ${ROOT} = "" ]] && config_sanity_fail "ROOT must be configured"
-  [[ ${DEST} = "" || ${DEST} = "s3+http://backup-foobar-bucket/backup-folder/" ]] && config_sanity_fail "DEST must be configured"
-  [[ ${INCLIST[0]} = "/home/foobar_user_name/Documents/" ]] && config_sanity_fail "INCLIST must be configured"
-  [[ ${EXCLIST[0]} = "/home/foobar_user_name/Documents/foobar-to-exclude" ]] && config_sanity_fail "EXCLIST must be configured"
-  [[ ( ${ENCRYPTION} = "yes" && (${GPG_ENC_KEY} = "foobar_gpg_key" || \
-       ${GPG_SIGN_KEY} = "foobar_gpg_key" || \
-       ${PASSPHRASE} = "foobar_gpg_passphrase")) ]] && \
-  config_sanity_fail "ENCRYPTION is set to 'yes', but GPG_ENC_KEY, GPG_SIGN_KEY, or PASSPHRASE have not been configured"
-  [[ ( ${DEST_IS_S3} = true && (${AWS_ACCESS_KEY_ID} = "foobar_aws_key_id" || ${AWS_SECRET_ACCESS_KEY} = "foobar_aws_access_key" )) ]] && \
-  config_sanity_fail "An s3 DEST has been specified, but AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY have not been configured"
-  [[ ( ${DEST_IS_GS} = true && (${GS_ACCESS_KEY_ID} = "foobar_gcs_key_id" || ${GS_SECRET_ACCESS_KEY} = "foobar_gcs_secret_id" )) ]] && \
-  config_sanity_fail "A Google Cloud Storage DEST has been specified, but GS_ACCESS_KEY_ID or GS_SECRET_ACCESS_KEY have not been configured"
-  [[ ( ${DEST_IS_DPBX} = true && (${DPBX_ACCESS_TOKEN} = "foobar_dropbox_access_token" )) ]] && \
-  config_sanity_fail "A Dropbox DEST has been specified, but DPBX_ACCESS_TOKEN has not been configured"
-  [[ -n "${INCEXCFILE}" && ! -f ${INCEXCFILE} ]] && config_sanity_fail "The specified INCEXCFILE ${INCEXCFILE} does not exists"
+  local error_detail
+  [[ -z "${ROOT}" ]] && error_detail="ROOT must be configured"
+  [[ -z "${DEST}" || "${DEST}" == "s3+http://backup-foobar-bucket/backup-folder/" ]] && error_detail="DEST must be configured"
+  [[ "${INCLIST[0]}" == "/home/foobar_user_name/Documents/" ]] && error_detail="INCLIST must be configured"
+  [[ "${EXCLIST[0]}" == "/home/foobar_user_name/Documents/foobar-to-exclude" ]] && error_detail="EXCLIST must be configured"
+  if [[ "${ENCRYPTION}" == "yes" ]]; then
+    [[ "${GPG_ENC_KEY}" == "foobar_gpg_key" || "${GPG_SIGN_KEY}" == "foobar_gpg_key" || \
+       "${PASSPHRASE}" == "foobar_gpg_passphrase" ]] && \
+      error_detail="ENCRYPTION is set to 'yes', but GPG_ENC_KEY, GPG_SIGN_KEY, or PASSPHRASE have not been configured"
+  fi
+
+  case "${DEST_PROTO}" in
+    "s3")
+      [[ "${AWS_ACCESS_KEY_ID}" == "foobar_aws_key_id" || "${AWS_SECRET_ACCESS_KEY}" == "foobar_aws_access_key" ]] && \
+        error_detail="An s3 DEST has been specified, but AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY have not been configured"
+      ;;
+    "gs")
+      [[ "${GS_ACCESS_KEY_ID}" == "foobar_gcs_key_id" || "${GS_SECRET_ACCESS_KEY}" == "foobar_gcs_secret_id" ]] && \
+        error_detail="A Google Cloud Storage DEST has been specified, but GS_ACCESS_KEY_ID or GS_SECRET_ACCESS_KEY have not been configured"
+      ;;
+    "dpbx")
+      [[ "${DPBX_ACCESS_TOKEN}" == "foobar_dropbox_access_token" ]] && \
+        error_detail="A Dropbox DEST has been specified, but DPBX_ACCESS_TOKEN has not been configured"
+      ;;
+  esac
+
+  [[ -n "${INCEXCFILE}" && ! -f "${INCEXCFILE}" ]] && error_detail="The specified INCEXCFILE ${INCEXCFILE} does not exists"
+
+  [[ -n "${error_detail}" ]] && config_sanity_fail "${error_detail}"
+
 }
 
 mailcmd_sendmail() {
@@ -626,42 +629,43 @@ get_lock()
 get_remote_file_size()
 {
   echo "---------[ Destination Disk Use Information ]--------"
-  FRIENDLY_TYPE_NAME=""
-  dest_type=$(echo "${DEST}" | cut -c 1,2)
-  case $dest_type in
-    "ss")
-      FRIENDLY_TYPE_NAME="SSH"
+  local friendly_type_name tmpdest
+  case "${DEST_PROTO}" in
+    "ssh")
+      friendly_type_name="SSH"
 
-      TMPDEST="${DEST#*://*/}"
-      TMPDEST="${DEST%/${TMPDEST}}"
+      tmpdest="${DEST#*://*/}"
+      # shellcheck disable=SC2295
+      tmpdest="${DEST%/${tmpdest}}"
       ssh_opt=$(echo "${STATIC_OPTIONS}" |awk -vo="--ssh-options=" '{s=index($0,o); if (s) {s=substr($0,s+length(o)); m=substr(s,0,1); for (i=2; i < length(s); i++) { if (substr(s,i,1) == m && substr(s,i-1,1) != "\\\\") break; } print substr(s,2,i-2)}}')
 
-      SIZE=$(${TMPDEST%://*} "${ssh_opt}" "${TMPDEST#*//}" du -hs "${DEST#${TMPDEST}/}" | awk '{print $1}')
-      EMAIL_SUBJECT="${EMAIL_SUBJECT} ${SIZE} $(${TMPDEST%://*} "${ssh_opt}" "${TMPDEST#*//}" df -hP "${DEST#${TMPDEST}/}" | awk '{tmp=$5 " used"}END{print tmp}')"
+      # shellcheck disable=SC2295
+      SIZE=$(${tmpdest%://*} "${ssh_opt}" "${tmpdest#*//}" du -hs "${DEST#${tmpdest}/}" | awk '{print $1}')
+      # shellcheck disable=SC2295
+      EMAIL_SUBJECT="${EMAIL_SUBJECT} ${SIZE} $(${tmpdest%://*} "${ssh_opt}" "${tmpdest#*//}" df -hP "${DEST#${tmpdest}/}" | awk '{tmp=$5 " used"}END{print tmp}')"
     ;;
-    "fi")
-      FRIENDLY_TYPE_NAME="File"
-      TMPDEST="${DEST#file://*}"
-      SIZE=$(du -hs "${TMPDEST}" | awk '{print $1}')
+    "file")
+      friendly_type_name="File"
+      tmpdest="${DEST#file://*}"
+      SIZE=$(du -hs "${tmpdest}" | awk '{print $1}')
     ;;
     "gs")
-      FRIENDLY_TYPE_NAME="Google Cloud Storage"
+      friendly_type_name="Google Cloud Storage"
       if ${GSCMD_AVAIL} ; then
-        #TMPDEST=$(echo "${DEST}" | sed -e "s/\/*$//" )
-        TMPDEST=${DEST//\/*$/}
-        SIZE=$(gsutil du -hs "${TMPDEST}" | awk '{print $1$2}')
+        #tmpdest=$(echo "${DEST}" | sed -e "s/\/*$//" )
+        tmpdest=${DEST//\/*$/}
+        SIZE=$(gsutil du -hs "${tmpdest}" | awk '{print $1$2}')
       fi
     ;;
-    "s3")
-      FRIENDLY_TYPE_NAME="Amazon S3"
+    "s3"|"s3+http")
+      friendly_type_name="Amazon S3"
       if ${S3CMD_AVAIL} ; then
-          TMPDEST=$(echo "${DEST}" | cut -f 3- -d /)
-          dest_scheme=$(echo "${DEST}" | cut -f -1 -d :)
-          if [ "$dest_scheme" = "s3" ]; then
+          tmpdest=$(echo "${DEST}" | cut -f 3- -d /)
+          if [[ "${DEST_PROTO}" == "s3" ]]; then
               # Strip off the host name, too.
-              TMPDEST=$(echo "${TMPDEST}" | cut -f 2- -d /)
+              tmpdest=$(echo "${tmpdest}" | cut -f 2- -d /)
           fi
-          SIZE=$(${S3CMD} du -H s3://"${TMPDEST}" | awk '{print $1}')
+          SIZE=$(${S3CMD} du -H s3://"${tmpdest}" | awk '{print $1}')
       else
           if ! ${S3CMD_CONF_FOUND} ; then
               SIZE="-s3cmd config not found-"
@@ -671,7 +675,7 @@ get_remote_file_size()
       fi
     ;;
     "b2")
-      FRIENDLY_TYPE_NAME="Backblaze B2"
+      friendly_type_name="Backblaze B2"
       if ${B2CMD_AVAIL}; then
         if [[ -n ${FTP_PASSWORD} ]]; then
           APP_KEY=${FTP_PASSWORD}
@@ -699,17 +703,15 @@ get_remote_file_size()
     ;;
     *)
       # not yet available for the other backends
-      FRIENDLY_TYPE_NAME=""
+      friendly_type_name=""
+      echo "Destination disk use information is currently only available for the following storage backends:"
+      echo "File, SSH, Amazon S3, Google Cloud and Backblaze B2"
     ;;
   esac
 
-  if [[ ${FRIENDLY_TYPE_NAME} ]] ; then
-      echo -e "${SIZE}\t${FRIENDLY_TYPE_NAME} type backend"
-  else
-      echo "Destination disk use information is currently only available for the following storage backends:"
-      echo "File, SSH, Amazon S3, Google Cloud and Backblaze B2"
+  if [[ -n "${friendly_type_name}" ]] ; then
+      echo -e "${SIZE}\t${friendly_type_name} type backend\\n"
   fi
-  echo
 }
 
 include_exclude()
@@ -1129,7 +1131,7 @@ if [ "${USAGE}" ]; then
   exit 0
 fi
 
-if [ ${DUPLICITY_ERRCODE} -eq 1 ]; then
+if [[ ${DUPLICITY_ERRCODE} -eq 1 ]]; then
   BACKUP_STATUS="ERROR"
   # send email or notification on error
   [[ "${EMAIL_FAILURE_ONLY}" == "yes" ]] && email_logfile
@@ -1163,6 +1165,6 @@ unset FTP_PASSWORD
 exec 1>&6 2>&7 3>&- 4>&- 5>&- 6>&- 7>&-
 
 # set Duplicity error code as script's error code
-exit ${DUPLICITY_ERRCODE}
+exit "${DUPLICITY_ERRCODE}"
 
 # vim: set tabstop=2 shiftwidth=2 sts=2 autoindent smartindent:

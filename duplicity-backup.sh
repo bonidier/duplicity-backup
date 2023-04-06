@@ -631,24 +631,11 @@ get_remote_file_size()
   echo "---------[ Destination Disk Use Information ]--------"
   local friendly_type_name tmpdest
   case "${DEST_PROTO}" in
-    "ssh")
-      friendly_type_name="SSH"
-
-      tmpdest="${DEST#*://*/}"
-      # shellcheck disable=SC2295
-      tmpdest="${DEST%/${tmpdest}}"
-      ssh_opt=$(echo "${STATIC_OPTIONS}" |awk -vo="--ssh-options=" '{s=index($0,o); if (s) {s=substr($0,s+length(o)); m=substr(s,0,1); for (i=2; i < length(s); i++) { if (substr(s,i,1) == m && substr(s,i-1,1) != "\\\\") break; } print substr(s,2,i-2)}}')
-
-      # shellcheck disable=SC2295
-      SIZE=$(${tmpdest%://*} "${ssh_opt}" "${tmpdest#*//}" du -hs "${DEST#${tmpdest}/}" | awk '{print $1}')
-      # shellcheck disable=SC2295
-      EMAIL_SUBJECT="${EMAIL_SUBJECT} ${SIZE} $(${tmpdest%://*} "${ssh_opt}" "${tmpdest#*//}" df -hP "${DEST#${tmpdest}/}" | awk '{tmp=$5 " used"}END{print tmp}')"
-    ;;
     "file")
       friendly_type_name="File"
       tmpdest="${DEST#file://*}"
       SIZE=$(du -hs "${tmpdest}" | awk '{print $1}')
-    ;;
+      ;;
     "gs")
       friendly_type_name="Google Cloud Storage"
       if ${GSCMD_AVAIL} ; then
@@ -656,7 +643,7 @@ get_remote_file_size()
         tmpdest=${DEST//\/*$/}
         SIZE=$(gsutil du -hs "${tmpdest}" | awk '{print $1$2}')
       fi
-    ;;
+      ;;
     "s3"|"s3+http")
       friendly_type_name="Amazon S3"
       if ${S3CMD_AVAIL} ; then
@@ -673,7 +660,7 @@ get_remote_file_size()
               SIZE="-s3cmd not found in PATH-"
           fi
       fi
-    ;;
+      ;;
     "b2")
       friendly_type_name="Backblaze B2"
       if ${B2CMD_AVAIL}; then
@@ -700,13 +687,13 @@ get_remote_file_size()
       else
               SIZE="-b2 not found in PATH-"
       fi
-    ;;
+      ;;
     *)
       # not yet available for the other backends
       friendly_type_name=""
       echo "Destination disk use information is currently only available for the following storage backends:"
-      echo "File, SSH, Amazon S3, Google Cloud and Backblaze B2"
-    ;;
+      echo "File, Amazon S3, Google Cloud and Backblaze B2"
+      ;;
   esac
 
   if [[ -n "${friendly_type_name}" ]] ; then

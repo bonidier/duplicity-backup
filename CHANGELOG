@@ -9,6 +9,7 @@ vX.X.X (unreleased)
   * extract full destination's schema, used into conditions blocks
   * rework check_variables()
   * shellcheck pass
+  * get_remote_file_size(): remove size calculation for ssh backend, Duplicity does not support ssh://
 
 v1.6.1 (2023-03-20)
 ===================

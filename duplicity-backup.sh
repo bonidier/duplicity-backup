@@ -53,8 +53,8 @@ exec 7>&2
 
 # ------------------------------------------------------------
 
-usage(){
-echo "USAGE:
+usage() {
+  echo "USAGE:
   $(basename "$0") [options]
 
   Options:
@@ -98,7 +98,7 @@ echo "USAGE:
     ROOT (root directory of backup) = ${ROOT}
     LOGFILE (log file path)         = ${LOGFILE}
 " >&6
-USAGE=1
+  USAGE=1
 }
 
 DUPLICITY="$(command -v duplicity)"
@@ -112,28 +112,29 @@ DUPLICITY_VERSION=$(${DUPLICITY} --version)
 DUPLICITY_VERSION=${DUPLICITY_VERSION//[^0-9\.]/}
 
 version_compare() {
-    local l r s
-    if [[ $1 =~ ^([0-9]+\.?)+$ && $2 =~ ^([0-9]+\.?)+$ ]]; then
-        # shellcheck disable=SC2206
-        l=(${1//./ }) r=(${2//./ }) s=${#l[@]}; [[ ${#r[@]} -gt ${#l[@]} ]] && s=${#r[@]}
+  local l r s
+  if [[ $1 =~ ^([0-9]+\.?)+$ && $2 =~ ^([0-9]+\.?)+$ ]]; then
+    # shellcheck disable=SC2206
+    l=(${1//./ }) r=(${2//./ }) s=${#l[@]}
+    [[ ${#r[@]} -gt ${#l[@]} ]] && s=${#r[@]}
 
-        for i in $(seq 0 $((s - 1))); do
-            [[ ${l[$i]} -gt ${r[$i]} ]] && return 1
-            [[ ${l[$i]} -lt ${r[$i]} ]] && return 2
-        done
+    for i in $(seq 0 $((s - 1))); do
+      [[ ${l[$i]} -gt ${r[$i]} ]] && return 1
+      [[ ${l[$i]} -lt ${r[$i]} ]] && return 2
+    done
 
-        return 0
-    else
-        echo "Invalid version number given"
-        exit 1
-    fi
+    return 0
+  else
+    echo "Invalid version number given"
+    exit 1
+  fi
 }
 
 # set a flag if duplicity's version is lower than 0.7, for usage later in the script
 version_compare "${DUPLICITY_VERSION}" 0.7
-case $? in 2) LT07=1;; *) LT07=0;; esac
+case $? in 2) LT07=1 ;; *) LT07=0 ;; esac
 
-version(){
+version() {
   echo "duplicity-backup.sh ${DBSH_VERSION}"
   echo "duplicity ${DUPLICITY_VERSION}"
   exit 0
@@ -154,91 +155,89 @@ while getopts ":c:t:bfvelsqnhV-:" opt; do
           # We try to find the optional value [restore dest]
           if [ -n "${!OPTIND:0:1}" ] && [ ! "${!OPTIND:0:1}" = "-" ]; then
             RESTORE_DEST=${!OPTIND}
-            OPTIND=$(( OPTIND + 1 )) # we found it, move forward in arg parsing
+            OPTIND=$((OPTIND + 1)) # we found it, move forward in arg parsing
           fi
-        ;;
+          ;;
         # --restore-file [file to restore] [restore dest]
         # --restore-dir [path to restore] [restore dest]
-        restore-file|restore-dir)
+        restore-file | restore-dir)
           COMMAND=${OPTARG}
           # We try to find the first optional value [file to restore]
           if [ -n "${!OPTIND:0:1}" ] && [ ! "${!OPTIND:0:1}" = "-" ]; then
             FILE_TO_RESTORE=${!OPTIND}
-            OPTIND=$(( OPTIND + 1 )) # we found it, move forward in arg parsing
+            OPTIND=$((OPTIND + 1)) # we found it, move forward in arg parsing
           else
             continue # no value for the restore-file option, skip the rest
           fi
           # We try to find the second optional value [restore dest]
           if [ -n "${!OPTIND:0:1}" ] && [ ! "${!OPTIND:0:1}" = "-" ]; then
             RESTORE_DEST=${!OPTIND}
-            OPTIND=$(( OPTIND + 1 )) # we found it, move forward in arg parsing
+            OPTIND=$((OPTIND + 1)) # we found it, move forward in arg parsing
           fi
-        ;;
+          ;;
         config) # set the config file from the command line
           # We try to find the config file
           if [ -n "${!OPTIND:0:1}" ] && [ ! "${!OPTIND:0:1}" = "-" ]; then
             CONFIG=${!OPTIND}
-            OPTIND=$(( OPTIND + 1 )) # we found it, move forward in arg parsing
+            OPTIND=$((OPTIND + 1)) # we found it, move forward in arg parsing
           fi
-        ;;
+          ;;
         time) # set the restore time from the command line
           # We try to find the restore time
           if [ -n "${!OPTIND:0:1}" ] && [ ! "${!OPTIND:0:1}" = "-" ]; then
             TIME=${!OPTIND}
-            OPTIND=$(( OPTIND + 1 )) # we found it, move forward in arg parsing
+            OPTIND=$((OPTIND + 1)) # we found it, move forward in arg parsing
           fi
-        ;;
+          ;;
         quiet)
           QUIET=1
-        ;;
+          ;;
         dry-run)
           DRY_RUN="--dry-run"
-        ;;
+          ;;
         help)
           usage
           exit 0
-        ;;
+          ;;
         version)
           version
-        ;;
+          ;;
         *)
           COMMAND=${OPTARG}
-        ;;
-        esac
-    ;;
+          ;;
+      esac
+      ;;
     # here are parsed the short options
-    c) CONFIG=${OPTARG};; # set the config file from the command line
-    t) TIME=${OPTARG};; # set the restore time from the command line
-    b) COMMAND="backup";;
-    f) COMMAND="full";;
-    v) COMMAND="verify";;
-    e) COMMAND="cleanup";;
-    l) COMMAND="list-current-files";;
-    s) COMMAND="collection-status";;
-    q) QUIET=1;;
-    n) DRY_RUN="--dry-run";; # dry run
+    c) CONFIG=${OPTARG} ;; # set the config file from the command line
+    t) TIME=${OPTARG} ;;   # set the restore time from the command line
+    b) COMMAND="backup" ;;
+    f) COMMAND="full" ;;
+    v) COMMAND="verify" ;;
+    e) COMMAND="cleanup" ;;
+    l) COMMAND="list-current-files" ;;
+    s) COMMAND="collection-status" ;;
+    q) QUIET=1 ;;
+    n) DRY_RUN="--dry-run" ;; # dry run
     h)
       usage
       exit 0
-    ;;
-    V) version;;
+      ;;
+    V) version ;;
     :)
       echo "Option -${OPTARG} requires an argument." >&2
       COMMAND=""
-    ;;
+      ;;
     \?)
       echo "Invalid option: -${OPTARG}" >&2
       COMMAND=""
-    ;;
+      ;;
   esac
 done
 #echo "Options parsed. COMMAND=${COMMAND}" # for debugging
 
-
 # ----------------  Read config file if specified -----------------
 
-if [ -n "${CONFIG}" ] && [ -f "${CONFIG}" ];
-then
+if [ -n "${CONFIG}" ] && [ -f "${CONFIG}" ]; then
   # shellcheck source=duplicity-backup.conf.example
   . "${CONFIG}"
 else
@@ -318,7 +317,7 @@ exec 4>&1
 
 # create fd5 as a direct redirection to the logfile
 # so that the content is never shown on screen but always logged
-exec 5>> "${LOGFILE}"
+exec 5>>"${LOGFILE}"
 
 # finally we modify stdout (fd1) to always being logged (like fd3 and fd5)
 # but only being shown on screen if quiet mode is not active
@@ -416,48 +415,52 @@ readonly DEST_PROTO=${DEST%"://"*}
 
 case "${DEST_PROTO}" in
   "gs")
-      GSCMD="$(command -v gsutil)"
-      if [ ! -x "${GSCMD}" ]; then
-        echo "${NO_GSCMD}"; GSCMD_AVAIL=false
-      elif [ ! -f "${HOME}/.boto" ]; then
-        echo "${NO_GSCMD_CFG}"; GSCMD_AVAIL=false
-      else
-        GSCMD_AVAIL=true
-      fi
+    GSCMD="$(command -v gsutil)"
+    if [ ! -x "${GSCMD}" ]; then
+      echo "${NO_GSCMD}"
+      GSCMD_AVAIL=false
+    elif [ ! -f "${HOME}/.boto" ]; then
+      echo "${NO_GSCMD_CFG}"
+      GSCMD_AVAIL=false
+    else
+      GSCMD_AVAIL=true
+    fi
     ;;
-   "s3"|"s3+http")
-      S3CMD="$(command -v s3cmd)"
-      if [ ! -x "${S3CMD}" ]; then
-        echo "${NO_S3CMD}"; S3CMD_AVAIL=false
-      elif [ -z "${S3CMD_CONF_FILE}" ] && [ ! -f "${HOME}/.s3cfg" ]; then
-        S3CMD_CONF_FOUND=false
-        echo "${NO_S3CMD_CFG}"; S3CMD_AVAIL=false
-      elif [ -n "${S3CMD_CONF_FILE}" ] && [ ! -f "${S3CMD_CONF_FILE}" ]; then
-        S3CMD_CONF_FOUND=false
-        echo "${S3CMD_CONF_FILE} not found, check S3CMD_CONF_FILE variable in duplicity-backup's configuration!";
-        echo "${NO_S3CMD_CFG}";
-        S3CMD_AVAIL=false
-      else
-        S3CMD_AVAIL=true
-        S3CMD_CONF_FOUND=true
-        if [ -n "${S3CMD_CONF_FILE}" ] && [ -f "${S3CMD_CONF_FILE}" ]; then
-          # if conf file specified and it exists then add it to the command line for s3cmd
-          S3CMD="${S3CMD} -c ${S3CMD_CONF_FILE}"
-        fi
+  "s3" | "s3+http")
+    S3CMD="$(command -v s3cmd)"
+    if [ ! -x "${S3CMD}" ]; then
+      echo "${NO_S3CMD}"
+      S3CMD_AVAIL=false
+    elif [ -z "${S3CMD_CONF_FILE}" ] && [ ! -f "${HOME}/.s3cfg" ]; then
+      S3CMD_CONF_FOUND=false
+      echo "${NO_S3CMD_CFG}"
+      S3CMD_AVAIL=false
+    elif [ -n "${S3CMD_CONF_FILE}" ] && [ ! -f "${S3CMD_CONF_FILE}" ]; then
+      S3CMD_CONF_FOUND=false
+      echo "${S3CMD_CONF_FILE} not found, check S3CMD_CONF_FILE variable in duplicity-backup's configuration!"
+      echo "${NO_S3CMD_CFG}"
+      S3CMD_AVAIL=false
+    else
+      S3CMD_AVAIL=true
+      S3CMD_CONF_FOUND=true
+      if [ -n "${S3CMD_CONF_FILE}" ] && [ -f "${S3CMD_CONF_FILE}" ]; then
+        # if conf file specified and it exists then add it to the command line for s3cmd
+        S3CMD="${S3CMD} -c ${S3CMD_CONF_FILE}"
       fi
+    fi
     ;;
-  "dpbx");;
+  "dpbx") ;;
   "b2")
     B2CMD_AVAIL=true
     B2CMD="$(command -v b2)"
     if [ ! -x "${B2CMD}" ]; then
-      echo "${NO_B2CMD}"; B2CMD_AVAIL=false
+      echo "${NO_B2CMD}"
+      B2CMD_AVAIL=false
     fi
     ;;
 esac
 
-config_sanity_fail()
-{
+config_sanity_fail() {
   local explanation=$1
   local config_var_msg="Oops!! ${0} was unable to run!\nWe are missing one or more important variables in the configuration file.\nCheck your configuration because it appears that something has not been set yet."
   echo -e "${config_var_msg}\n  ${explanation}." >&2
@@ -465,30 +468,29 @@ config_sanity_fail()
   exit 1
 }
 
-check_variables()
-{
+check_variables() {
   local error_detail
   [[ -z "${ROOT}" ]] && error_detail="ROOT must be configured"
   [[ -z "${DEST}" || "${DEST}" == "s3+http://backup-foobar-bucket/backup-folder/" ]] && error_detail="DEST must be configured"
   [[ "${INCLIST[0]}" == "/home/foobar_user_name/Documents/" ]] && error_detail="INCLIST must be configured"
   [[ "${EXCLIST[0]}" == "/home/foobar_user_name/Documents/foobar-to-exclude" ]] && error_detail="EXCLIST must be configured"
   if [[ "${ENCRYPTION}" == "yes" ]]; then
-    [[ "${GPG_ENC_KEY}" == "foobar_gpg_key" || "${GPG_SIGN_KEY}" == "foobar_gpg_key" || \
-       "${PASSPHRASE}" == "foobar_gpg_passphrase" ]] && \
+    [[ "${GPG_ENC_KEY}" == "foobar_gpg_key" || "${GPG_SIGN_KEY}" == "foobar_gpg_key" ||
+      "${PASSPHRASE}" == "foobar_gpg_passphrase" ]] &&
       error_detail="ENCRYPTION is set to 'yes', but GPG_ENC_KEY, GPG_SIGN_KEY, or PASSPHRASE have not been configured"
   fi
 
   case "${DEST_PROTO}" in
     "s3")
-      [[ "${AWS_ACCESS_KEY_ID}" == "foobar_aws_key_id" || "${AWS_SECRET_ACCESS_KEY}" == "foobar_aws_access_key" ]] && \
+      [[ "${AWS_ACCESS_KEY_ID}" == "foobar_aws_key_id" || "${AWS_SECRET_ACCESS_KEY}" == "foobar_aws_access_key" ]] &&
         error_detail="An s3 DEST has been specified, but AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY have not been configured"
       ;;
     "gs")
-      [[ "${GS_ACCESS_KEY_ID}" == "foobar_gcs_key_id" || "${GS_SECRET_ACCESS_KEY}" == "foobar_gcs_secret_id" ]] && \
+      [[ "${GS_ACCESS_KEY_ID}" == "foobar_gcs_key_id" || "${GS_SECRET_ACCESS_KEY}" == "foobar_gcs_secret_id" ]] &&
         error_detail="A Google Cloud Storage DEST has been specified, but GS_ACCESS_KEY_ID or GS_SECRET_ACCESS_KEY have not been configured"
       ;;
     "dpbx")
-      [[ "${DPBX_ACCESS_TOKEN}" == "foobar_dropbox_access_token" ]] && \
+      [[ "${DPBX_ACCESS_TOKEN}" == "foobar_dropbox_access_token" ]] &&
         error_detail="A Dropbox DEST has been specified, but DPBX_ACCESS_TOKEN has not been configured"
       ;;
   esac
@@ -513,67 +515,74 @@ mailcmd_msmtp() {
 }
 mailcmd_bsd_mailx() {
   # based on http://man.he.net/man1/bsd-mailx
-  ${MAILCMD} -s "${EMAIL_SUBJECT}" -a "From: ${EMAIL_FROM}" "${EMAIL_TO}" < "${LOGFILE}"
+  ${MAILCMD} -s "${EMAIL_SUBJECT}" -a "From: ${EMAIL_FROM}" "${EMAIL_TO}" <"${LOGFILE}"
 }
 mailcmd_heirloom_mailx() {
   # based on http://heirloom.sourceforge.net/mailx/mailx.1.html
-  ${MAILCMD} -s "${EMAIL_SUBJECT}" -S from="${EMAIL_FROM}" "${EMAIL_TO}" < "${LOGFILE}"
+  ${MAILCMD} -s "${EMAIL_SUBJECT}" -S from="${EMAIL_FROM}" "${EMAIL_TO}" <"${LOGFILE}"
 }
 mailcmd_nail() {
   # based on http://linux.die.net/man/1/nail
-  ${MAILCMD} -s "${EMAIL_SUBJECT}" -r "${EMAIL_FROM}" "${EMAIL_TO}" < "${LOGFILE}"
+  ${MAILCMD} -s "${EMAIL_SUBJECT}" -r "${EMAIL_FROM}" "${EMAIL_TO}" <"${LOGFILE}"
 }
 mailcmd_else() {
-  ${MAILCMD} "${EMAIL_SUBJECT}" "${EMAIL_FROM}" "${EMAIL_TO}" < "${LOGFILE}"
+  ${MAILCMD} "${EMAIL_SUBJECT}" "${EMAIL_FROM}" "${EMAIL_TO}" <"${LOGFILE}"
 }
 
-email_logfile()
-{
+email_logfile() {
   echo "sending email..."
   if [ -n "${EMAIL_TO}" ]; then
 
-      MAILCMD=$(command -v "${MAIL}")
-      MAILCMD_REALPATH=$(readlink -e "${MAILCMD}")
-      MAILCMD_BASENAME=${MAILCMD_REALPATH##*/}
+    MAILCMD=$(command -v "${MAIL}")
+    MAILCMD_REALPATH=$(readlink -e "${MAILCMD}")
+    MAILCMD_BASENAME=${MAILCMD_REALPATH##*/}
 
-      if [ ! -x "${MAILCMD}" ]; then
-          echo -e "Email couldn't be sent. ${MAIL} not available." >&2
-      else
-          EMAIL_SUBJECT=${EMAIL_SUBJECT:="duplicity-backup ${BACKUP_STATUS:-"ERROR"} (${HOSTNAME}) ${LOG_FILE}"}
-          case ${MAIL} in
-            ssmtp)
-              mailcmd_ssmtp;;
-            msmtp)
-              mailcmd_msmtp;;
-            mail|mailx)
-              case ${MAILCMD_BASENAME} in
-                bsd-mailx|mail.mailutils)
-                  mailcmd_bsd_mailx;;
-                heirloom-mailx)
-                  mailcmd_heirloom_mailx;;
-                s-nail)
-                  mailcmd_nail;;
-                *)
-                  mailcmd_else;;
-              esac
+    if [ ! -x "${MAILCMD}" ]; then
+      echo -e "Email couldn't be sent. ${MAIL} not available." >&2
+    else
+      EMAIL_SUBJECT=${EMAIL_SUBJECT:="duplicity-backup ${BACKUP_STATUS:-"ERROR"} (${HOSTNAME}) ${LOG_FILE}"}
+      case ${MAIL} in
+        ssmtp)
+          mailcmd_ssmtp
+          ;;
+        msmtp)
+          mailcmd_msmtp
+          ;;
+        mail | mailx)
+          case ${MAILCMD_BASENAME} in
+            bsd-mailx | mail.mailutils)
+              mailcmd_bsd_mailx
               ;;
-            sendmail)
-              mailcmd_sendmail;;
-            nail)
-              mailcmd_nail;;
+            heirloom-mailx)
+              mailcmd_heirloom_mailx
+              ;;
+            s-nail)
+              mailcmd_nail
+              ;;
             *)
-              mailcmd_else;;
+              mailcmd_else
+              ;;
           esac
+          ;;
+        sendmail)
+          mailcmd_sendmail
+          ;;
+        nail)
+          mailcmd_nail
+          ;;
+        *)
+          mailcmd_else
+          ;;
+      esac
 
-          echo -e "Email notification sent to ${EMAIL_TO} using ${MAIL}"
-      fi
+      echo -e "Email notification sent to ${EMAIL_TO} using ${MAIL}"
+    fi
   else
     echo "[skipped]: EMAIL_TO not set"
   fi
 }
 
-send_notification()
-{
+send_notification() {
   echo "sending notification..."
   if [ -n "${NOTIFICATION_SERVICE}" ]; then
     echo "-----------[ Notification Request ]-----------"
@@ -585,10 +594,10 @@ send_notification()
       curl -X POST -H 'Content-type: application/json' --data "{\"value1\": \"${NOTIFICATION_CONTENT}\", \"value2\": \"${IFTTT_VALUE2}\"}" "${IFTTT_HOOK_URL}"
     elif [ "${NOTIFICATION_SERVICE}" = "pushover" ]; then
       curl -s \
-      -F "token=${PUSHOVER_TOKEN}" \
-      -F "user=${PUSHOVER_USER}" \
-      -F "message=${NOTIFICATION_CONTENT}" \
-      https://api.pushover.net/1/messages
+        -F "token=${PUSHOVER_TOKEN}" \
+        -F "user=${PUSHOVER_USER}" \
+        -F "message=${NOTIFICATION_CONTENT}" \
+        https://api.pushover.net/1/messages
     elif [ "${NOTIFICATION_SERVICE}" = "telegram" ]; then
       curl -s --max-time 10 -d "chat_id=${TELEGRAM_CHATID}&disable_web_page_preview=1&text=${NOTIFICATION_CONTENT}" "https://api.telegram.org/bot${TELEGRAM_KEY}/sendMessage" >/dev/null
     fi
@@ -609,25 +618,26 @@ send_notification()
   fi
 }
 
-get_lock()
-{
+get_lock() {
   echo "Attempting to acquire lock ${LOCKFILE}" >&5
-  if ( set -o noclobber; echo "$$" > "${LOCKFILE}" ) 2> /dev/null; then
-      # The lock succeeded. Create a signal handler to remove the lock file when the process terminates.
-      trap 'EXITCODE=$?; echo "Removing lock. Exit code: ${EXITCODE}" >> ${LOGFILE}; rm -f "${LOCKFILE}"' EXIT
-      echo "successfully acquired lock." >&5
+  if (
+    set -o noclobber
+    echo "$$" >"${LOCKFILE}"
+  ) 2>/dev/null; then
+    # The lock succeeded. Create a signal handler to remove the lock file when the process terminates.
+    trap 'EXITCODE=$?; echo "Removing lock. Exit code: ${EXITCODE}" >> ${LOGFILE}; rm -f "${LOCKFILE}"' EXIT
+    echo "successfully acquired lock." >&5
   else
-      # Write lock acquisition errors to log file and stderr
-      echo "lock failed, could not acquire ${LOCKFILE}" >&2
-      echo "lock held by $(cat "${LOCKFILE}")" >&2
-      email_logfile
-      send_notification
-      exit 2
+    # Write lock acquisition errors to log file and stderr
+    echo "lock failed, could not acquire ${LOCKFILE}" >&2
+    echo "lock held by $(cat "${LOCKFILE}")" >&2
+    email_logfile
+    send_notification
+    exit 2
   fi
 }
 
-get_remote_file_size()
-{
+get_remote_file_size() {
   echo "---------[ Destination Disk Use Information ]--------"
   local friendly_type_name tmpdest
   case "${DEST_PROTO}" in
@@ -638,27 +648,27 @@ get_remote_file_size()
       ;;
     "gs")
       friendly_type_name="Google Cloud Storage"
-      if ${GSCMD_AVAIL} ; then
+      if ${GSCMD_AVAIL}; then
         #tmpdest=$(echo "${DEST}" | sed -e "s/\/*$//" )
         tmpdest=${DEST//\/*$/}
         SIZE=$(gsutil du -hs "${tmpdest}" | awk '{print $1$2}')
       fi
       ;;
-    "s3"|"s3+http")
+    "s3" | "s3+http")
       friendly_type_name="Amazon S3"
-      if ${S3CMD_AVAIL} ; then
-          tmpdest=$(echo "${DEST}" | cut -f 3- -d /)
-          if [[ "${DEST_PROTO}" == "s3" ]]; then
-              # Strip off the host name, too.
-              tmpdest=$(echo "${tmpdest}" | cut -f 2- -d /)
-          fi
-          SIZE=$(${S3CMD} du -H s3://"${tmpdest}" | awk '{print $1}')
+      if ${S3CMD_AVAIL}; then
+        tmpdest=$(echo "${DEST}" | cut -f 3- -d /)
+        if [[ "${DEST_PROTO}" == "s3" ]]; then
+          # Strip off the host name, too.
+          tmpdest=$(echo "${tmpdest}" | cut -f 2- -d /)
+        fi
+        SIZE=$(${S3CMD} du -H s3://"${tmpdest}" | awk '{print $1}')
       else
-          if ! ${S3CMD_CONF_FOUND} ; then
-              SIZE="-s3cmd config not found-"
-          else
-              SIZE="-s3cmd not found in PATH-"
-          fi
+        if ! ${S3CMD_CONF_FOUND}; then
+          SIZE="-s3cmd config not found-"
+        else
+          SIZE="-s3cmd not found in PATH-"
+        fi
       fi
       ;;
     "b2")
@@ -685,7 +695,7 @@ get_remote_file_size()
         fi
         SIZE=$(${B2CMD} ls --long "${BUCKET}" | awk '{ print $5 }' | paste -sd+ | bc | numfmt --to=iec)
       else
-              SIZE="-b2 not found in PATH-"
+        SIZE="-b2 not found in PATH-"
       fi
       ;;
     *)
@@ -696,13 +706,12 @@ get_remote_file_size()
       ;;
   esac
 
-  if [[ -n "${friendly_type_name}" ]] ; then
-      echo -e "${SIZE}\t${friendly_type_name} type backend\\n"
+  if [[ -n "${friendly_type_name}" ]]; then
+    echo -e "${SIZE}\t${friendly_type_name} type backend\\n"
   fi
 }
 
-include_exclude()
-{
+include_exclude() {
   # Changes to handle spaces in directory names and filenames
   # and wrapping the files to include and exclude in quotes.
   OLDIFS=$IFS
@@ -714,16 +723,14 @@ include_exclude()
     EXCLUDE=${EXCLUDE}${TMP}
   fi
 
-  for include in "${INCLIST[@]}"
-  do
+  for include in "${INCLIST[@]}"; do
     if [[ -n "$include" ]]; then
       TMP=" --include='$include'"
       INCLUDE=${INCLUDE}${TMP}
     fi
   done
 
-  for exclude in "${EXCLIST[@]}"
-  do
+  for exclude in "${EXCLIST[@]}"; do
     if [[ -n "$exclude" ]]; then
       TMP=" --exclude '$exclude'"
       EXCLUDE=${EXCLUDE}${TMP}
@@ -747,13 +754,11 @@ include_exclude()
     EXCLUDEROOT="--exclude=**"
   fi
 
-
   # Restore IFS
   IFS=$OLDIFS
 }
 
-_duplicity_cmd()
-{
+_duplicity_cmd() {
   local duplicity_cmd=
   duplicity_cmd=("${DUPLICITY}" "$*")
   # avoid to set this common variables anywhere
@@ -766,12 +771,11 @@ _duplicity_cmd()
   fi
 }
 
-duplicity_cleanup()
-{
+duplicity_cleanup() {
   echo "----------------[ Duplicity Cleanup ]----------------"
   echo -e ":: Step 1 - Clean-up command: ${CLEAN_UP_TYPE}\\n"
   case "${CLEAN_UP_TYPE}" in
-    "remove-older-than"|"remove-all-but-n-full")
+    "remove-older-than" | "remove-all-but-n-full")
       if [[ -n "${CLEAN_UP_VARIABLE}" ]]; then
         _duplicity_cmd "${CLEAN_UP_TYPE}" "${CLEAN_UP_VARIABLE}" --force
         echo
@@ -779,7 +783,7 @@ duplicity_cleanup()
         echo "[skipped]: CLEAN_UP_VARIABLE not set"
       fi
       ;;
-    "none"|*)
+    "none" | *)
       echo "disabled"
       ;;
   esac
@@ -788,7 +792,7 @@ duplicity_cleanup()
   if [[ -n "${REMOVE_INCREMENTALS_OLDER_THAN}" ]]; then
     echo "N=${REMOVE_INCREMENTALS_OLDER_THAN}"
     if [[ ${REMOVE_INCREMENTALS_OLDER_THAN} =~ ^[0-9]+$ && ${REMOVE_INCREMENTALS_OLDER_THAN} -gt 0 ]]; then
-      _duplicity_cmd "remove-all-inc-of-but-n-full" "${REMOVE_INCREMENTALS_OLDER_THAN}"  --force
+      _duplicity_cmd "remove-all-inc-of-but-n-full" "${REMOVE_INCREMENTALS_OLDER_THAN}" --force
     else
       echo "WARN: REMOVE_INCREMENTALS_OLDER_THAN must be a number above 0"
     fi
@@ -798,12 +802,10 @@ duplicity_cleanup()
   fi
 }
 
-duplicity_backup()
-{
+duplicity_backup() {
   local command=$1
   case "${command}" in
-    "full"|"incremental"|"incr"|"verify"|"restore")
-      ;;
+    "full" | "incremental" | "incr" | "verify" | "restore") ;;
     *)
       echo "ERROR: invalid option: $1" >&2
       exit 1
@@ -811,14 +813,13 @@ duplicity_backup()
   esac
 
   _duplicity_cmd "${command}" "${VERBOSITY}" \
-                 "${EXCLUDE}" \
-                 "${INCLUDE}" \
-                 "${EXCLUDEROOT}" \
-                 "${ROOT}"
+    "${EXCLUDE}" \
+    "${INCLUDE}" \
+    "${EXCLUDEROOT}" \
+    "${ROOT}"
 }
 
-setup_passphrase()
-{
+setup_passphrase() {
   if [ -n "${GPG_ENC_KEY}" ] && [ -n "${GPG_SIGN_KEY}" ] && [ "${GPG_ENC_KEY}" != "${GPG_SIGN_KEY}" ]; then
     echo -n "Please provide the passphrase for decryption (GPG key 0x${GPG_ENC_KEY}): " >&3
     builtin read -s -r ENCPASSPHRASE
@@ -828,13 +829,11 @@ setup_passphrase()
   fi
 }
 
-get_file_sizes()
-{
+get_file_sizes() {
   get_remote_file_size
 }
 
-backup_this_script()
-{
+backup_this_script() {
   local script_file script_path tmpdir tmp_filename readme
   if [[ "${0:0:1}" == "." ]]; then
     script_file="${0:2}"
@@ -864,7 +863,7 @@ backup_this_script()
     echo "      3. Config file: ${CONFIG}" >&3
   fi
 
-  if [[ -n "${INCEXCFILE}" &&  -f "${INCEXCFILE}" ]]; then
+  if [[ -n "${INCEXCFILE}" && -f "${INCEXCFILE}" ]]; then
     echo "      4. Include/Exclude globbing file: ${INCEXCFILE}" >&3
   fi
 
@@ -890,14 +889,14 @@ backup_this_script()
 
   if [[ -n "${GPG_ENC_KEY}" && -n "${GPG_SIGN_KEY}" ]]; then
     if [[ "${GPG_ENC_KEY}" == "${GPG_SIGN_KEY}" ]]; then
-      gpg -a --export-secret-keys "${KEYRING}" "${GPG_ENC_KEY}" > "${tmpdir}/duplicity-backup-encryption-and-sign-secret.key.txt"
+      gpg -a --export-secret-keys "${KEYRING}" "${GPG_ENC_KEY}" >"${tmpdir}/duplicity-backup-encryption-and-sign-secret.key.txt"
     else
-      gpg -a --export-secret-keys "${KEYRING}" "${GPG_ENC_KEY}" > "${tmpdir}/duplicity-backup-encryption-secret.key.txt"
-      gpg -a --export-secret-keys "${KEYRING}" "${GPG_SIGN_KEY}" > "${tmpdir}/duplicity-backup-sign-secret.key.txt"
+      gpg -a --export-secret-keys "${KEYRING}" "${GPG_ENC_KEY}" >"${tmpdir}/duplicity-backup-encryption-secret.key.txt"
+      gpg -a --export-secret-keys "${KEYRING}" "${GPG_SIGN_KEY}" >"${tmpdir}/duplicity-backup-sign-secret.key.txt"
     fi
   fi
 
-  cat > "${readme}" <<EOF
+  cat >"${readme}" <<EOF
 
 In case you've long forgotten, this is a backup script that you used to backup some files
 (most likely remotely at Amazon S3). In order to restore these files,
@@ -933,12 +932,10 @@ EOF
 }
 
 # usage: check_required_binaries <binary1> <binary2> ...
-check_required_binaries()
-{
+check_required_binaries() {
   local req_bin missing_bin=()
   # check required bins
-  for req_bin in "$@"
-  do
+  for req_bin in "$@"; do
     type -p "${req_bin}" >/dev/null || missing_bin+=("${req_bin}")
   done
 
@@ -955,7 +952,6 @@ check_required_binaries()
 check_required_binaries tar pinentry || exit 1
 
 check_variables
-
 
 echo -e "--------    START DUPLICITY-BACKUP SCRIPT for ${HOSTNAME}   --------\n" >&5
 
@@ -977,14 +973,14 @@ case "${COMMAND}" in
       exit 1
     fi
     exit 0
-  ;;
+    ;;
 
   "full")
     include_exclude
     duplicity_backup "full"
     duplicity_cleanup
     get_file_sizes
-  ;;
+    ;;
 
   "verify")
     OLDROOT=${ROOT}
@@ -1005,7 +1001,7 @@ case "${COMMAND}" in
     get_file_sizes
 
     echo -e "Verify complete.\n" >&3
-  ;;
+    ;;
 
   "cleanup")
     if [ -z "${DRY_RUN}" ]; then
@@ -1016,7 +1012,7 @@ case "${COMMAND}" in
     setup_passphrase
     _duplicity_cmd "cleanup" "${VERBOSITY}"
     echo -e "Cleanup complete."
-  ;;
+    ;;
 
   "restore")
     ROOT=${DEST}
@@ -1044,9 +1040,9 @@ case "${COMMAND}" in
     setup_passphrase
     echo "Attempting to restore now ..." >&3
     duplicity_backup "restore"
-  ;;
+    ;;
 
-  "restore-file"|"restore-dir")
+  "restore-file" | "restore-dir")
     ROOT=${DEST}
 
     if [ -n "${TIME}" ]; then
@@ -1086,30 +1082,30 @@ case "${COMMAND}" in
     #use INCLUDE variable without creating another one
     INCLUDE="--file-to-restore ${FILE_TO_RESTORE}"
     duplicity_backup "restore"
-  ;;
+    ;;
 
   "list-current-files")
     if [ -n "${TIME}" ]; then
       STATIC_OPTIONS="${STATIC_OPTIONS} --time ${TIME}"
     fi
     _duplicity_cmd "list-current-files" "${VERBOSITY}"
-  ;;
+    ;;
 
   "collection-status")
     _duplicity_cmd "collection-status" "${VERBOSITY}"
-  ;;
+    ;;
 
   "backup")
     include_exclude
     duplicity_backup "incremental"
     duplicity_cleanup
     get_file_sizes
-  ;;
+    ;;
 
   *)
     echo -e "[Only show $(basename "$0") usage options]\n"
     usage
-  ;;
+    ;;
 esac
 
 echo -e "---------    END DUPLICITY-BACKUP SCRIPT    ---------\n" >&5

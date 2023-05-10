@@ -103,7 +103,7 @@ usage() {
 
 DUPLICITY="$(command -v duplicity)"
 
-if [ ! -x "${DUPLICITY}" ]; then
+if [[ ! -x "${DUPLICITY}" ]]; then
   echo "ERROR: duplicity not installed, that's gotta happen first!" >&2
   exit 1
 fi
@@ -153,7 +153,7 @@ while getopts ":c:t:bfvelsqnhV-:" opt; do
         restore)
           COMMAND=${OPTARG}
           # We try to find the optional value [restore dest]
-          if [ -n "${!OPTIND:0:1}" ] && [ ! "${!OPTIND:0:1}" = "-" ]; then
+          if [[ -n "${!OPTIND:0:1}" ]] && [[ ! "${!OPTIND:0:1}" = "-" ]]; then
             RESTORE_DEST=${!OPTIND}
             OPTIND=$((OPTIND + 1)) # we found it, move forward in arg parsing
           fi
@@ -163,28 +163,28 @@ while getopts ":c:t:bfvelsqnhV-:" opt; do
         restore-file | restore-dir)
           COMMAND=${OPTARG}
           # We try to find the first optional value [file to restore]
-          if [ -n "${!OPTIND:0:1}" ] && [ ! "${!OPTIND:0:1}" = "-" ]; then
+          if [[ -n "${!OPTIND:0:1}" ]] && [[ ! "${!OPTIND:0:1}" = "-" ]]; then
             FILE_TO_RESTORE=${!OPTIND}
             OPTIND=$((OPTIND + 1)) # we found it, move forward in arg parsing
           else
             continue # no value for the restore-file option, skip the rest
           fi
           # We try to find the second optional value [restore dest]
-          if [ -n "${!OPTIND:0:1}" ] && [ ! "${!OPTIND:0:1}" = "-" ]; then
+          if [[ -n "${!OPTIND:0:1}" ]] && [[ ! "${!OPTIND:0:1}" = "-" ]]; then
             RESTORE_DEST=${!OPTIND}
             OPTIND=$((OPTIND + 1)) # we found it, move forward in arg parsing
           fi
           ;;
         config) # set the config file from the command line
           # We try to find the config file
-          if [ -n "${!OPTIND:0:1}" ] && [ ! "${!OPTIND:0:1}" = "-" ]; then
+          if [[ -n "${!OPTIND:0:1}" ]] && [[ ! "${!OPTIND:0:1}" = "-" ]]; then
             CONFIG=${!OPTIND}
             OPTIND=$((OPTIND + 1)) # we found it, move forward in arg parsing
           fi
           ;;
         time) # set the restore time from the command line
           # We try to find the restore time
-          if [ -n "${!OPTIND:0:1}" ] && [ ! "${!OPTIND:0:1}" = "-" ]; then
+          if [[ -n "${!OPTIND:0:1}" ]] && [[ ! "${!OPTIND:0:1}" = "-" ]]; then
             TIME=${!OPTIND}
             OPTIND=$((OPTIND + 1)) # we found it, move forward in arg parsing
           fi
@@ -237,7 +237,7 @@ done
 
 # ----------------  Read config file if specified -----------------
 
-if [ -n "${CONFIG}" ] && [ -f "${CONFIG}" ]; then
+if [[ -n "${CONFIG}" ]] && [[ -f "${CONFIG}" ]]; then
   # shellcheck source=duplicity-backup.conf.example
   . "${CONFIG}"
 else
@@ -257,7 +257,7 @@ LOGDIR="${LOGDIR%/}/"
 
 LOGFILE="${LOGDIR}${LOG_FILE}"
 
-if [ ! -d "${LOGDIR}" ]; then
+if [[ ! -d "${LOGDIR}" ]]; then
   echo "Attempting to create log directory ${LOGDIR} ..."
   if ! mkdir -p "${LOGDIR}"; then
     echo "Log directory ${LOGDIR} could not be created by this user: ${USER}" >&2
@@ -274,7 +274,7 @@ if [ ! -d "${LOGDIR}" ]; then
   else
     echo "Directory ${LOGDIR} successfully changed to owner:group of ${LOG_FILE_OWNER}"
   fi
-elif [ ! -w "${LOGDIR}" ]; then
+elif [[ ! -w "${LOGDIR}" ]]; then
   echo "Log directory ${LOGDIR} is not writeable by this user: ${USER}" >&2
   echo "Aborting..." >&2
   exit 1
@@ -338,11 +338,11 @@ fi
 
 # ------------------------- Setting up variables ------------------------
 
-if [ -n "${DRY_RUN}" ]; then
+if [[ -n "${DRY_RUN}" ]]; then
   STATIC_OPTIONS="${DRY_RUN} ${STATIC_OPTIONS}"
 fi
 
-if [ -n "${STORAGECLASS}" ]; then
+if [[ -n "${STORAGECLASS}" ]]; then
   STATIC_OPTIONS="${STATIC_OPTIONS} ${STORAGECLASS}"
 fi
 
@@ -374,25 +374,25 @@ fi
 # the script is running at a time.
 LOCKFILE=${LOGDIR}backup.lock
 
-if [ "${ENCRYPTION}" = "yes" ]; then
+if [[ "${ENCRYPTION}" = "yes" ]]; then
   ENCRYPT="--gpg-options \"${GPG_OPTIONS}\""
-  if [ -n "${GPG_ENC_KEY}" ] && [ -n "${GPG_SIGN_KEY}" ]; then
-    if [ "${HIDE_KEY_ID}" = "yes" ]; then
+  if [[ -n "${GPG_ENC_KEY}" ]] && [[ -n "${GPG_SIGN_KEY}" ]]; then
+    if [[ "${HIDE_KEY_ID}" = "yes" ]]; then
       ENCRYPT="${ENCRYPT} --hidden-encrypt-key=${GPG_ENC_KEY}"
-      if [ "${COMMAND}" != "restore" ] && [ "${COMMAND}" != "restore-file" ] && [ "${COMMAND}" != "restore-dir" ]; then
+      if [[ "${COMMAND}" != "restore" ]] && [[ "${COMMAND}" != "restore-file" ]] && [[ "${COMMAND}" != "restore-dir" ]]; then
         ENCRYPT="${ENCRYPT} --sign-key=${GPG_SIGN_KEY}"
       fi
     else
       ENCRYPT="${ENCRYPT} --encrypt-key=${GPG_ENC_KEY} --sign-key=${GPG_SIGN_KEY}"
     fi
-    if [ -n "${SECRET_KEYRING}" ]; then
+    if [[ -n "${SECRET_KEYRING}" ]]; then
       KEYRING="--secret-keyring ${SECRET_KEYRING}"
       ENCRYPT="${ENCRYPT} --encrypt-secret-keyring=${SECRET_KEYRING}"
     fi
-  elif [ -n "${PASSPHRASE}" ]; then
+  elif [[ -n "${PASSPHRASE}" ]]; then
     ENCRYPT=""
   fi
-elif [ "${ENCRYPTION}" = "no" ]; then
+elif [[ "${ENCRYPTION}" = "no" ]]; then
   ENCRYPT="--no-encryption"
 fi
 
@@ -416,10 +416,10 @@ readonly DEST_PROTO=${DEST%"://"*}
 case "${DEST_PROTO}" in
   "gs")
     GSCMD="$(command -v gsutil)"
-    if [ ! -x "${GSCMD}" ]; then
+    if [[ ! -x "${GSCMD}" ]]; then
       echo "${NO_GSCMD}"
       GSCMD_AVAIL=false
-    elif [ ! -f "${HOME}/.boto" ]; then
+    elif [[ ! -f "${HOME}/.boto" ]]; then
       echo "${NO_GSCMD_CFG}"
       GSCMD_AVAIL=false
     else
@@ -428,14 +428,14 @@ case "${DEST_PROTO}" in
     ;;
   "s3" | "s3+http")
     S3CMD="$(command -v s3cmd)"
-    if [ ! -x "${S3CMD}" ]; then
+    if [[ ! -x "${S3CMD}" ]]; then
       echo "${NO_S3CMD}"
       S3CMD_AVAIL=false
-    elif [ -z "${S3CMD_CONF_FILE}" ] && [ ! -f "${HOME}/.s3cfg" ]; then
+    elif [[ -z "${S3CMD_CONF_FILE}" ]] && [[ ! -f "${HOME}/.s3cfg" ]]; then
       S3CMD_CONF_FOUND=false
       echo "${NO_S3CMD_CFG}"
       S3CMD_AVAIL=false
-    elif [ -n "${S3CMD_CONF_FILE}" ] && [ ! -f "${S3CMD_CONF_FILE}" ]; then
+    elif [[ -n "${S3CMD_CONF_FILE}" ]] && [[ ! -f "${S3CMD_CONF_FILE}" ]]; then
       S3CMD_CONF_FOUND=false
       echo "${S3CMD_CONF_FILE} not found, check S3CMD_CONF_FILE variable in duplicity-backup's configuration!"
       echo "${NO_S3CMD_CFG}"
@@ -443,7 +443,7 @@ case "${DEST_PROTO}" in
     else
       S3CMD_AVAIL=true
       S3CMD_CONF_FOUND=true
-      if [ -n "${S3CMD_CONF_FILE}" ] && [ -f "${S3CMD_CONF_FILE}" ]; then
+      if [[ -n "${S3CMD_CONF_FILE}" ]] && [[ -f "${S3CMD_CONF_FILE}" ]]; then
         # if conf file specified and it exists then add it to the command line for s3cmd
         S3CMD="${S3CMD} -c ${S3CMD_CONF_FILE}"
       fi
@@ -453,7 +453,7 @@ case "${DEST_PROTO}" in
   "b2")
     B2CMD_AVAIL=true
     B2CMD="$(command -v b2)"
-    if [ ! -x "${B2CMD}" ]; then
+    if [[ ! -x "${B2CMD}" ]]; then
       echo "${NO_B2CMD}"
       B2CMD_AVAIL=false
     fi
@@ -531,13 +531,13 @@ mailcmd_else() {
 
 email_logfile() {
   echo "sending email..."
-  if [ -n "${EMAIL_TO}" ]; then
+  if [[ -n "${EMAIL_TO}" ]]; then
 
     MAILCMD=$(command -v "${MAIL}")
     MAILCMD_REALPATH=$(readlink -e "${MAILCMD}")
     MAILCMD_BASENAME=${MAILCMD_REALPATH##*/}
 
-    if [ ! -x "${MAILCMD}" ]; then
+    if [[ ! -x "${MAILCMD}" ]]; then
       echo -e "Email couldn't be sent. ${MAIL} not available." >&2
     else
       EMAIL_SUBJECT=${EMAIL_SUBJECT:="duplicity-backup ${BACKUP_STATUS:-"ERROR"} (${HOSTNAME}) ${LOG_FILE}"}
@@ -584,33 +584,33 @@ email_logfile() {
 
 send_notification() {
   echo "sending notification..."
-  if [ -n "${NOTIFICATION_SERVICE}" ]; then
+  if [[ -n "${NOTIFICATION_SERVICE}" ]]; then
     echo "-----------[ Notification Request ]-----------"
     NOTIFICATION_CONTENT="duplicity-backup ${BACKUP_STATUS:-"ERROR"} [${HOSTNAME}] - \`${LOGFILE}\`"
 
-    if [ "${NOTIFICATION_SERVICE}" = "slack" ]; then
+    if [[ "${NOTIFICATION_SERVICE}" = "slack" ]]; then
       curl -X POST -H 'Content-type: application/json' --data "{\"text\": \"${NOTIFICATION_CONTENT}\", \"channel\": \"${SLACK_CHANNEL}\", \"username\": \"${SLACK_USERNAME}\", \"icon_emoji\": \":${SLACK_EMOJI}:\"}" "${SLACK_HOOK_URL}"
-    elif [ "${NOTIFICATION_SERVICE}" = "ifttt" ]; then
+    elif [[ "${NOTIFICATION_SERVICE}" = "ifttt" ]]; then
       curl -X POST -H 'Content-type: application/json' --data "{\"value1\": \"${NOTIFICATION_CONTENT}\", \"value2\": \"${IFTTT_VALUE2}\"}" "${IFTTT_HOOK_URL}"
-    elif [ "${NOTIFICATION_SERVICE}" = "pushover" ]; then
+    elif [[ "${NOTIFICATION_SERVICE}" = "pushover" ]]; then
       curl -s \
         -F "token=${PUSHOVER_TOKEN}" \
         -F "user=${PUSHOVER_USER}" \
         -F "message=${NOTIFICATION_CONTENT}" \
         https://api.pushover.net/1/messages
-    elif [ "${NOTIFICATION_SERVICE}" = "telegram" ]; then
+    elif [[ "${NOTIFICATION_SERVICE}" = "telegram" ]]; then
       curl -s --max-time 10 -d "chat_id=${TELEGRAM_CHATID}&disable_web_page_preview=1&text=${NOTIFICATION_CONTENT}" "https://api.telegram.org/bot${TELEGRAM_KEY}/sendMessage" >/dev/null
     fi
 
     echo -e "\n----------------------------------------------\n"
 
-    if [ "${NOTIFICATION_SERVICE}" = "slack" ]; then
+    if [[ "${NOTIFICATION_SERVICE}" = "slack" ]]; then
       echo -e "Slack notification sent to channel ${SLACK_CHANNEL}"
-    elif [ "${NOTIFICATION_SERVICE}" = "ifttt" ]; then
+    elif [[ "${NOTIFICATION_SERVICE}" = "ifttt" ]]; then
       echo -e "IFTTT notification sent to Maker channel event ${IFTTT_EVENT}"
-    elif [ "${NOTIFICATION_SERVICE}" = "pushover" ]; then
+    elif [[ "${NOTIFICATION_SERVICE}" = "pushover" ]]; then
       echo -e "Pushover notification sent"
-    elif [ "${NOTIFICATION_SERVICE}" = "telegram" ]; then
+    elif [[ "${NOTIFICATION_SERVICE}" = "telegram" ]]; then
       echo -e "Telegram notification sent"
     fi
   else
@@ -718,7 +718,7 @@ include_exclude() {
   IFS=$(echo -en "\t\n")
 
   # Exclude device files?
-  if [ -n "${EXDEVICEFILES}" ] && [ "${EXDEVICEFILES}" -ne 0 ]; then
+  if [[ -n "${EXDEVICEFILES}" ]] && [[ "${EXDEVICEFILES}" -ne 0 ]]; then
     TMP=" --exclude-device-files"
     EXCLUDE=${EXCLUDE}${TMP}
   fi
@@ -738,8 +738,8 @@ include_exclude() {
   done
 
   # Include/Exclude globbing filelist
-  if [ "${INCEXCFILE}" != '' ]; then
-    if [ ${LT07} -eq 1 ]; then
+  if [[ "${INCEXCFILE}" != '' ]]; then
+    if [[ ${LT07} -eq 1 ]]; then
       TMP=" --include-globbing-filelist '${INCEXCFILE}'"
     else
       TMP=" --include-filelist '${INCEXCFILE}'"
@@ -748,7 +748,7 @@ include_exclude() {
   fi
 
   # INCLIST and globbing filelist is empty so every file needs to be saved
-  if [ ${#INCLIST[@]} -eq 0 ] && [ "${INCEXCFILE}" == '' ]; then
+  if [[ ${#INCLIST[@]} -eq 0 ]] && [[ "${INCEXCFILE}" == '' ]]; then
     EXCLUDEROOT=''
   else
     EXCLUDEROOT="--exclude=**"
@@ -820,7 +820,7 @@ duplicity_backup() {
 }
 
 setup_passphrase() {
-  if [ -n "${GPG_ENC_KEY}" ] && [ -n "${GPG_SIGN_KEY}" ] && [ "${GPG_ENC_KEY}" != "${GPG_SIGN_KEY}" ]; then
+  if [[ -n "${GPG_ENC_KEY}" ]] && [[ -n "${GPG_SIGN_KEY}" ]] && [[ "${GPG_ENC_KEY}" != "${GPG_SIGN_KEY}" ]]; then
     echo -n "Please provide the passphrase for decryption (GPG key 0x${GPG_ENC_KEY}): " >&3
     builtin read -s -r ENCPASSPHRASE
     echo -ne "\n" >&3
@@ -1004,7 +1004,7 @@ case "${COMMAND}" in
     ;;
 
   "cleanup")
-    if [ -z "${DRY_RUN}" ]; then
+    if [[ -z "${DRY_RUN}" ]]; then
       STATIC_OPTIONS="${STATIC_OPTIONS} --force"
     fi
 
@@ -1016,7 +1016,7 @@ case "${COMMAND}" in
 
   "restore")
     ROOT=${DEST}
-    if [ -n "${TIME}" ]; then
+    if [[ -n "${TIME}" ]]; then
       STATIC_OPTIONS="${STATIC_OPTIONS} --time ${TIME}"
     fi
 
@@ -1045,7 +1045,7 @@ case "${COMMAND}" in
   "restore-file" | "restore-dir")
     ROOT=${DEST}
 
-    if [ -n "${TIME}" ]; then
+    if [[ -n "${TIME}" ]]; then
       STATIC_OPTIONS="${STATIC_OPTIONS} --time ${TIME}"
     fi
 
@@ -1067,7 +1067,7 @@ case "${COMMAND}" in
     echo -e ">> TO: ${DEST}" >&3
     echo -e "\nAre you sure you want to do that ('yes' to continue)?" >&3
     read -r ANSWER
-    if [ "${ANSWER}" != "yes" ]; then
+    if [[ "${ANSWER}" != "yes" ]]; then
       echo "You said << ${ANSWER} >> so I am exiting now." >&3
       echo -e "User aborted restore process ...\n" >&2
       echo -e "---------------------    END    ---------------------\n" >&5
@@ -1085,7 +1085,7 @@ case "${COMMAND}" in
     ;;
 
   "list-current-files")
-    if [ -n "${TIME}" ]; then
+    if [[ -n "${TIME}" ]]; then
       STATIC_OPTIONS="${STATIC_OPTIONS} --time ${TIME}"
     fi
     _duplicity_cmd "list-current-files" "${VERBOSITY}"
@@ -1110,7 +1110,7 @@ esac
 
 echo -e "---------    END DUPLICITY-BACKUP SCRIPT    ---------\n" >&5
 
-if [ "${USAGE}" ]; then
+if [[ "${USAGE}" ]]; then
   exit 0
 fi
 

@@ -250,30 +250,40 @@ fi
 
 # Setup logging as soon as possible, in order to be able to perform i/o redirection
 
-[[ ${LOGDIR} = "/home/foobar_user_name/logs/test2/" ]] && config_sanity_fail "LOGDIR must be configured"
-
 # Ensure a trailing slash always exists in the log directory name
-LOGDIR="${LOGDIR%/}/"
+readonly LOGDIR="${LOGDIR%/}/"
+readonly LOGFILE="${LOGDIR}${LOG_FILE}"
 
-LOGFILE="${LOGDIR}${LOG_FILE}"
+# set current username if empty
+USER=${USER:-"$(id -u -n)"}
+
+if [[ ${UID} -eq 0 ]] && [[ -n "${LOG_FILE_OWNER}" ]]; then
+  readonly LOG_FILE_USER=${LOG_FILE_OWNER%:*}
+  readonly LOG_FILE_GROUP=${LOG_FILE_OWNER#*:}
+
+  if ! getent passwd "${LOG_FILE_USER}" &>/dev/null; then
+    echo "[LOG_FILE_OWNER] user '${LOG_FILE_USER}' does not exists" >&2
+    exit 1
+  fi
+  if ! getent group "${LOG_FILE_GROUP}" &>/dev/null; then
+    echo "[LOG_FILE_OWNER] group '${LOG_FILE_GROUP}' does not exists"  >&2
+    exit 1
+  fi
+fi
+
+[[ -z "${LOGDIR}" ]] && config_sanity_fail "LOGDIR must be configured"
 
 if [[ ! -d "${LOGDIR}" ]]; then
-  echo "Attempting to create log directory ${LOGDIR} ..."
-  if ! mkdir -p "${LOGDIR}"; then
-    echo "Log directory ${LOGDIR} could not be created by this user: ${USER}" >&2
-    echo "Aborting..." >&2
-    exit 1
+  if mkdir -pv "${LOGDIR}"; then
+    if [[ ${UID} -eq 0 ]] && [[ -n "${LOG_FILE_OWNER}" ]]; then
+      echo "Attempting to change owner:group of ${LOGDIR} to ${LOG_FILE_OWNER} ..." >&2
+      chown -v "${LOG_FILE_OWNER}" "${LOGDIR}" || exit 1
+    fi
   else
-    echo "Directory ${LOGDIR} successfully created."
-  fi
-  echo "Attempting to change owner:group of ${LOGDIR} to ${LOG_FILE_OWNER} ..."
-  if ! chown "${LOG_FILE_OWNER}" "${LOGDIR}"; then
-    echo "User ${USER} could not change the owner:group of ${LOGDIR} to ${LOG_FILE_OWNER}" >&2
-    echo "Aborting..." >&2
+    echo "Log directory ${LOGDIR} could not be created by user '${USER}'" >&2
     exit 1
-  else
-    echo "Directory ${LOGDIR} successfully changed to owner:group of ${LOG_FILE_OWNER}"
   fi
+
 elif [[ ! -w "${LOGDIR}" ]]; then
   echo "Log directory ${LOGDIR} is not writeable by this user: ${USER}" >&2
   echo "Aborting..." >&2

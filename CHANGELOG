@@ -10,6 +10,9 @@ vX.X.X (unreleased)
   * rework check_variables()
   * shellcheck pass
   * get_remote_file_size(): remove size calculation for ssh backend, Duplicity does not support ssh://
+  * log file
+    * only under root, verify LOG_FILE_OWNER has valid user/group
+    * only under root, change log directory owner
 
 v1.6.1 (2023-03-20)
 ===================

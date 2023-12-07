@@ -45,7 +45,7 @@ CONFIG="duplicity-backup.conf"
 # Script Happens Below This Line - Shouldn't Require Editing #
 ##############################################################
 
-DBSH_VERSION="v1.6.1-dev"
+DBSH_VERSION="v1.6.2"
 
 # make a backup of stdout and stderr for later
 exec 6>&1
@@ -252,6 +252,7 @@ fi
 
 # Ensure a trailing slash always exists in the log directory name
 readonly LOGDIR="${LOGDIR%/}/"
+# shellcheck source=duplicity-backup.conf.example
 readonly LOGFILE="${LOGDIR}${LOG_FILE}"
 
 # set current username if empty

@@ -1,4 +1,4 @@
-vX.X.X (unreleased)
+v1.6.2 (2023-12-07)
 ===================
   * rework duplicity_cmd() error code management
   * Ensure some required binaries exists (tar, pinentry)
